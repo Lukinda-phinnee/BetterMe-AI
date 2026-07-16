@@ -1,0 +1,139 @@
+// Theme Mixins and Classes
+@import './_variables.scss';
+
+// Light Theme (Default)
+:root {
+  --bg: #{$bg-light};
+  --surface: #{$surface-light};
+  --surface-2: #{$surface-2-light};
+  --ink: #{$ink-light};
+  --ink-soft: #{$ink-soft-light};
+  --muted: #{$muted-light};
+  --border: #{$border-light};
+  --primary: #{$primary-light};
+  --primary-dark: #{$primary-dark-light};
+  --primary-tint: #{$primary-tint-light};
+  --accent: #{$accent-light};
+  --accent-tint: #{$accent-tint-light};
+  --destructive: #{$destructive-light};
+  --success: #{$success-light};
+  --shadow: #{$shadow-md};
+  --font-display: #{$font-display};
+  --font-body: #{$font-body};
+  --font-mono: #{$font-mono};
+}
+
+// Dark Theme
+[data-theme='dark'] {
+  --bg: #{$bg-dark};
+  --surface: #{$surface-dark};
+  --surface-2: #{$surface-2-dark};
+  --ink: #{$ink-dark};
+  --ink-soft: #{$ink-soft-dark};
+  --muted: #{$muted-dark};
+  --border: #{$border-dark};
+  --primary: #{$primary-dark};
+  --primary-dark: #{$primary-dark-dark};
+  --primary-tint: #{$primary-tint-dark};
+  --accent: #{$accent-dark};
+  --accent-tint: #{$accent-tint-dark};
+  --destructive: #{$destructive-dark};
+  --success: #{$success-dark};
+  --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45), 0 8px 10px -6px rgba(0, 0, 0, 0.45);
+}
+
+// System preference dark mode
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #{$bg-dark};
+    --surface: #{$surface-dark};
+    --surface-2: #{$surface-2-dark};
+    --ink: #{$ink-dark};
+    --ink-soft: #{$ink-soft-dark};
+    --muted: #{$muted-dark};
+    --border: #{$border-dark};
+    --primary: #{$primary-dark};
+    --primary-dark: #{$primary-dark-dark};
+    --primary-tint: #{$primary-tint-dark};
+    --accent: #{$accent-dark};
+    --accent-tint: #{$accent-tint-dark};
+    --destructive: #{$destructive-dark};
+    --success: #{$success-dark};
+    --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45), 0 8px 10px -6px rgba(0, 0, 0, 0.45);
+  }
+}
+
+// Theme-aware mixin
+@mixin theme-aware($key, $color) {
+  @each $theme-name, $theme-color in $color {
+    [data-theme='#{$theme-name}'] & {
+      #{$key}: $theme-color;
+    }
+  }
+}
+
+// Base styles
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body, $font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: $line-height-normal;
+}
+
+// Typography
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display, $font-display);
+  font-weight: $font-weight-medium;
+  letter-spacing: -0.01em;
+  line-height: $line-height-tight;
+}
+
+h1 {
+  font-size: $font-size-2xl;
+}
+
+h2 {
+  font-size: $font-size-xl;
+}
+
+h3 {
+  font-size: $font-size-lg;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: var(--font-body, $font-body);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input {
+  font-family: var(--font-body, $font-body);
+}

@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BetterMe — UI Mockup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #F6F7F5;
+    --surface: #FFFFFF;
+    --surface-2: #EFF2EF;
+    --ink: #1B2321;
+    --ink-soft: #4B564F;
+    --muted: #8A9490;
+    --border: #E1E5E0;
+    --primary: #2F6F62;
+    --primary-dark: #234F46;
+    --primary-tint: #E6EFEC;
+    --accent: #E8A24C;
+    --accent-tint: #FBEBD3;
+    --danger: #C4573F;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow: 0 1px 2px rgba(27,35,33,0.04), 0 8px 24px rgba(27,35,33,0.06);
+    --font-display: "Fraunces", serif;
+    --font-body: "Inter", sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);}
+  body{-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:var(--font-display);font-weight:500;margin:0;letter-spacing:-0.01em;}
+  p{margin:0;}
+  button{font-family:var(--font-body);cursor:pointer;}
+  a{color:inherit;text-decoration:none;}
+
+  /* ---------- App shell ---------- */
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{
+    width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;padding:24px 16px;position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 28px;}
+  .brand-mark{
+    width:30px;height:30px;border-radius:9px;background:linear-gradient(155deg,var(--primary),var(--primary-dark));
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .brand-mark svg{width:16px;height:16px;}
+  .brand-name{font-family:var(--font-display);font-size:19px;font-weight:600;}
+
+  .nav-group{margin-bottom:22px;}
+  .nav-label{font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);padding:0 10px 8px;font-weight:600;}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-sm);
+    color:var(--ink-soft);font-size:14px;font-weight:500;margin-bottom:2px;transition:background .15s;
+  }
+  .nav-item:hover{background:var(--surface-2);}
+  .nav-item.active{background:var(--primary-tint);color:var(--primary-dark);}
+  .nav-item svg{width:17px;height:17px;opacity:.85;flex-shrink:0;}
+
+  .sidebar-footer{margin-top:auto;padding-top:16px;border-top:1px solid var(--border);}
+  .switcher{
+    display:flex;background:var(--surface-2);border-radius:999px;padding:3px;font-size:12.5px;font-weight:600;
+  }
+  .switcher button{flex:1;border:none;background:none;padding:7px 0;border-radius:999px;color:var(--muted);}
+  .switcher button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);}
+
+  .main{flex:1;min-width:0;position:relative;}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;padding:22px 36px 0;
+  }
+  .topbar h1{font-size:26px;}
+  .topbar .sub{color:var(--muted);font-size:14px;margin-top:4px;}
+  .date-chip{
+    font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);background:var(--surface);
+    border:1px solid var(--border);padding:6px 12px;border-radius:999px;
+  }
+
+  .screen{display:none;padding:24px 36px 60px;}
+  .screen.active{display:block;}
+
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px;box-shadow:var(--shadow);
+  }
+
+  /* ---------- Growth ring (signature element) ---------- */
+  .ring-wrap{position:relative;width:64px;height:64px;flex-shrink:0;}
+  .ring-wrap svg{transform:rotate(-90deg);width:64px;height:64px;}
+  .ring-track{fill:none;stroke:var(--surface-2);stroke-width:6;}
+  .ring-progress{fill:none;stroke:var(--accent);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset 1s ease;}
+  .ring-label{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--ink);
+  }
+
+  /* ---------- Dashboard ---------- */
+  .dash-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;margin-top:20px;}
+  .coach-card{
+    background:linear-gradient(155deg, var(--primary-dark), var(--primary));color:#fff;
+    border:none;position:relative;overflow:hidden;
+  }
+  .coach-card::after{
+    content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,0.10), transparent 70%);
+  }
+  .coach-eyebrow{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.75);font-weight:600;margin-bottom:10px;}
+  .coach-msg{font-family:var(--font-display);font-size:19px;line-height:1.45;max-width:460px;font-weight:500;}
+  .coach-actions{display:flex;gap:10px;margin-top:18px;}
+  .btn{
+    border:none;border-radius:999px;padding:9px 16px;font-size:13.5px;font-weight:600;
+  }
+  .btn-light{background:rgba(255,255,255,0.16);color:#fff;}
+  .btn-light:hover{background:rgba(255,255,255,0.24);}
+  .btn-solid{background:var(--accent);color:var(--primary-dark);}
+  .btn-solid:hover{filter:brightness(1.04);}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--ink-soft);}
+  .btn-outline:hover{border-color:var(--primary);color:var(--primary-dark);}
+
+  .task-row{
+    display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);
+  }
+  .task-row:last-child{border-bottom:none;}
+  .checkbox{
+    width:19px;height:19px;border-radius:6px;border:1.5px solid var(--muted);flex-shrink:0;
+  }
+  .checkbox.done{background:var(--primary);border-color:var(--primary);position:relative;}
+  .checkbox.done::after{content:"✓";position:absolute;inset:0;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;}
+  .task-title{font-size:14.5px;font-weight:500;}
+  .task-title.done{color:var(--muted);text-decoration:line-through;}
+  .task-meta{margin-left:auto;display:flex;align-items:center;gap:8px;}
+  .tag{
+    font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;
+  }
+  .tag-health{background:#E9F2E4;color:#4A7A3A;}
+  .tag-work{background:var(--primary-tint);color:var(--primary-dark);}
+  .tag-home{background:var(--accent-tint);color:#9A6420;}
+
+  .side-stack{display:flex;flex-direction:column;gap:20px;}
+  .streak-row{display:flex;align-items:center;gap:14px;}
+  .streak-days{display:flex;gap:6px;margin-top:10px;}
+  .day-dot{width:26px;height:26px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-family:var(--font-mono);color:var(--muted);}
+  .day-dot.filled{background:var(--accent);color:#fff;font-weight:600;}
+
+  .quick-add{
+    display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:999px;
+    padding:11px 16px;margin-top:20px;background:var(--surface);
+  }
+  .quick-add input{border:none;outline:none;flex:1;font-size:14px;font-family:var(--font-body);background:none;color:var(--ink);}
+  .quick-add input::placeholder{color:var(--muted);}
+
+  /* ---------- Board ---------- */
+  .board-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:20px;}
+  .col-head{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 14px;}
+  .col-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);}
+  .wip{font-family:var(--font-mono);font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--muted);}
+  .wip.over{background:#FBE6E0;color:var(--danger);}
+  .col-body{display:flex;flex-direction:column;gap:12px;min-height:80px;}
+  .kcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;box-shadow:var(--shadow);}
+  .kcard-title{font-size:14px;font-weight:600;margin-bottom:10px;line-height:1.35;}
+  .kcard-foot{display:flex;align-items:center;justify-content:space-between;}
+  .avatar{width:24px;height:24px;border-radius:50%;font-size:10px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);}
+  .due{font-family:var(--font-mono);font-size:11px;color:var(--muted);}
+  .due.soon{color:var(--danger);}
+  .add-card-ghost{border:1.5px dashed var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center;color:var(--muted);font-size:13px;font-weight:500;}
+
+  /* ---------- Floating coach button + panel ---------- */
+  .coach-fab{
+    position:fixed;bottom:28px;right:28px;background:var(--primary);color:#fff;border:none;
+    border-radius:999px;padding:13px 20px 13px 16px;display:flex;align-items:center;gap:9px;
+    box-shadow:0 10px 30px rgba(47,111,98,0.35);font-weight:600;font-size:14px;z-index:40;
+  }
+  .coach-fab svg{width:18px;height:18px;}
+
+  .coach-panel{
+    position:fixed;top:0;right:-420px;width:400px;height:100vh;background:var(--surface);
+    border-left:1px solid var(--border);box-shadow:-16px 0 40px rgba(0,0,0,0.08);
+    transition:right .35s ease;z-index:50;display:flex;flex-direction:column;
+  }
+  .coach-panel.open{right:0;}
+  .cp-head{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .cp-title{font-size:16px;font-weight:600;font-family:var(--font-display);}
+  .cp-close{width:28px;height:28px;border-radius:50%;border:none;background:var(--surface-2);color:var(--ink-soft);}
+  .cp-body{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px;}
+  .bubble{max-width:88%;padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.5;}
+  .bubble.ai{background:var(--surface-2);border-top-left-radius:4px;}
+  .bubble.user{background:var(--primary-tint);color:var(--primary-dark);align-self:flex-end;border-top-right-radius:4px;}
+  .step-suggestion{border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;}
+  .step-suggestion .st-title{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:8px;}
+  .step-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .step-item{display:flex;align-items:center;gap:8px;font-size:13.5px;}
+  .step-item .checkbox{width:16px;height:16px;}
+  .cp-actions{display:flex;gap:8px;}
+  .cp-actions .btn{flex:1;font-size:12.5px;padding:8px 0;}
+  .cp-input{border-top:1px solid var(--border);padding:14px;display:flex;gap:8px;}
+  .cp-input input{flex:1;border:1px solid var(--border);border-radius:999px;padding:9px 14px;font-size:13.5px;outline:none;font-family:var(--font-body);}
+
+  /* ---------- WOOP flow ---------- */
+  .woop-wrap{max-width:640px;margin:20px auto 0;}
+  .woop-progress{display:flex;gap:8px;margin-bottom:28px;}
+  .woop-progress span{height:4px;flex:1;border-radius:99px;background:var(--surface-2);}
+  .woop-progress span.done{background:var(--primary);}
+  .woop-step-label{font-family:var(--font-mono);font-size:12px;color:var(--accent);font-weight:600;letter-spacing:.04em;margin-bottom:8px;}
+  .woop-question{font-size:23px;margin-bottom:6px;}
+  .woop-help{color:var(--muted);font-size:13.5px;margin-bottom:20px;line-height:1.5;}
+  .woop-textarea{
+    width:100%;min-height:110px;border:1px solid var(--border);border-radius:var(--radius-sm);
+    padding:14px;font-size:15px;font-family:var(--font-body);color:var(--ink);outline:none;resize:vertical;
+  }
+  .woop-textarea:focus{border-color:var(--primary);}
+  .woop-nav{display:flex;justify-content:space-between;margin-top:22px;}
+  .woop-recap{display:flex;flex-direction:column;gap:14px;margin-top:6px;}
+  .recap-row{display:flex;gap:14px;}
+  .recap-tag{font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--muted);width:74px;flex-shrink:0;padding-top:2px;}
+  .recap-text{font-size:14.5px;line-height:1.5;}
+
+  /* ---------- Weekly reflection ---------- */
+  .reflect-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;}
+  .stat-row{display:flex;align-items:baseline;gap:8px;margin-bottom:4px;}
+  .stat-num{font-family:var(--font-display);font-size:34px;font-weight:600;}
+  .stat-of{color:var(--muted);font-size:14px;}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-top:10px;}
+  .bar-label{width:70px;font-size:12.5px;color:var(--ink-soft);flex-shrink:0;}
+  .bar-track{flex:1;height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--primary);border-radius:99px;}
+  .reflect-q{margin-top:4px;}
+  .reflect-q label{font-size:13px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:8px;}
+  .reflect-q textarea{
+    width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;
+    font-family:var(--font-body);font-size:14px;min-height:70px;resize:vertical;outline:none;
+  }
+
+  /* ---------- Team view ---------- */
+  .team-grid{display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-top:20px;}
+  .digest-line{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
+  .digest-line:last-child{border-bottom:none;}
+  .digest-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0;}
+  .member-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+  .member-row:last-child{border-bottom:none;}
+  .member-info{flex:1;}
+  .member-name{font-size:13.5px;font-weight:600;}
+  .member-load{font-size:11.5px;color:var(--muted);font-family:var(--font-mono);}
+  .load-bar{width:70px;height:6px;border-radius:99px;background:var(--surface-2);overflow:hidden;}
+  .load-fill{height:100%;border-radius:99px;}
+
+  .section-title{font-size:13.5px;font-weight:700;margin-bottom:14px;color:var(--ink-soft);}
+
+  @media (max-width:900px){
+    .dash-grid,.reflect-grid,.team-grid{grid-template-columns:1fr;}
+    .board-cols{grid-template-columns:1fr;}
+    .sidebar{display:none;}
+    .coach-panel{width:100%;right:-100%;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 15c3-1 4-6 8-6s5 5 8 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <span class="brand-name">BetterMe</span>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-item active" onclick="showScreen('dashboard', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        My Day
+      </div>
+      <div class="nav-item" onclick="showScreen('board', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
+        Board
+      </div>
+      <div class="nav-item" onclick="showScreen('woop', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>
+        Goals
+      </div>
+      <div class="nav-item" onclick="showScreen('reflect', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5a2 2 0 012-2h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M9 12h6M9 16h6"/></svg>
+        Reflection
+      </div>
+      <div class="nav-item" onclick="showScreen('team', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14.5 14.3c2.6.3 4.5 2.5 4.5 5.2"/></svg>
+        Team
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="switcher">
+        <button class="active" id="btn-personal" onclick="setMode('personal')">Personal</button>
+        <button id="btn-org" onclick="setMode('org')">Team</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ============ DASHBOARD ============ -->
+    <div class="screen active" id="screen-dashboard">
+      <div class="topbar">
+        <div>
+          <h1>Good morning, Alex</h1>
+          <div class="sub">Here's what matters today</div>
+        </div>
+        <div class="date-chip">Thu, Jul 9</div>
+      </div>
+
+      <div class="screen" style="display:block;padding-top:0;">
+        <div class="dash-grid">
+          <div>
+            <div class="card coach-card">
+              <div class="coach-eyebrow">Coach</div>
+              <div class="coach-msg">You've moved "Finish redesign brief" for 3 days in a row. Want to break it into one 20-minute step you could do right now, instead of the whole thing?</div>
+              <div class="coach-actions">
+                <button class="btn btn-solid" onclick="openCoach()">Break it down</button>
+                <button class="btn btn-light">Not today</button>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:20px;">
+              <div class="section-title">Today · 4 of 7 planned</div>
+              <div class="task-row">
+                <div class="checkbox done"></div>
+                <div class="task-title done">Morning pages + planning review</div>
+                <div class="task-meta"><span class="tag tag-health">Habit</span></div>
+              </div>
+              <div class="task-row">
+                <div class="checkbox done"></div>
+                <div class="task-title done">Reply to client emails</div>
+                <div class="task-meta"><span class="tag tag-work">Work</span></div>
+              </div>
+              <div class="task-row">
+                <div class="checkbox"></div>
+                <div class="task-title">Draft redesign brief — intro section only</div>
+                <div class="task-meta"><span class="tag tag-work">Work</span><span class="due soon">Today</span></div>
+              </div>
+              <div class="task-row">
+                <div class="checkbox"></div>
+                <div class="task-title">20-min walk after lunch</div>
+                <div class="task-meta"><span class="tag tag-health">Habit</span></div>
+              </div>
+              <div class="task-row">
+                <div class="checkbox"></div>
+                <div class="task-title">Pay electricity bill</div>
+                <div class="task-meta"><span class="tag tag-home">Home</span><span class="due">Fri</span></div>
+              </div>
+              <div class="quick-add">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted)"><path d="M12 5v14M5 12h14"/></svg>
+                <input placeholder="Add a task, or just tell the coach what's on your mind…">
+              </div>
+            </div>
+          </div>
+
+          <div class="side-stack">
+            <div class="card">
+              <div class="section-title">Morning routine streak</div>
+              <div class="streak-row">
+                <div class="ring-wrap">
+                  <svg viewBox="0 0 64 64">
+                    <circle class="ring-track" cx="32" cy="32" r="26"/>
+                    <circle class="ring-progress" cx="32" cy="32" r="26" stroke-dasharray="163" stroke-dashoffset="24"/>
+                  </svg>
+                  <div class="ring-label">12</div>
+                </div>
+                <div>
+                  <div style="font-weight:600;font-size:14.5px;">12-day streak</div>
+                  <div style="font-size:12.5px;color:var(--muted);">Anchored after your morning coffee</div>
+                </div>
+              </div>
+              <div class="streak-days">
+                <div class="day-dot filled">M</div>
+                <div class="day-dot filled">T</div>
+                <div class="day-dot filled">W</div>
+                <div class="day-dot filled">T</div>
+                <div class="day-dot filled">F</div>
+                <div class="day-dot filled">S</div>
+                <div class="day-dot">S</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-title">This week's focus</div>
+              <p style="font-size:14px;line-height:1.5;color:var(--ink-soft);">"Ship the redesign brief without letting it eat the whole week." — from your WOOP goal</p>
+              <button class="btn btn-outline" style="margin-top:14px;width:100%;" onclick="showScreen('woop', document.querySelectorAll('.nav-item')[2])">View goal plan →</button>
+            </div>
+
+            <div class="card">
+              <div class="section-title">Time by area, last 7 days</div>
+              <div class="bar-row"><div class="bar-label">Work</div><div class="bar-track"><div class="bar-fill" style="width:62%;"></div></div></div>
+              <div class="bar-row"><div class="bar-label">Health</div><div class="bar-track"><div class="bar-fill" style="width:24%;background:#4A7A3A;"></div></div></div>
+              <div class="bar-row"><div class="bar-label">Home</div><div class="bar-track"><div class="bar-fill" style="width:14%;background:var(--accent);"></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ BOARD ============ -->
+    <div class="screen" id="screen-board">
+      <div class="topbar">
+        <div>
+          <h1>Redesign Project</h1>
+          <div class="sub">Board view · WIP limits keep this from becoming a pile</div>
+        </div>
+        <button class="btn btn-outline">+ New card</button>
+      </div>
+
+      <div class="board-cols">
+        <div>
+          <div class="col-head"><span class="col-title">To do</span><span class="wip">6</span></div>
+          <div class="col-body">
+            <div class="kcard">
+              <div class="kcard-title">Interview 3 users about current pain points</div>
+              <div class="kcard-foot"><span class="tag tag-work">Research</span><span class="due">Mon</span></div>
+            </div>
+            <div class="kcard">
+              <div class="kcard-title">Audit competitor onboarding flows</div>
+              <div class="kcard-foot"><span class="tag tag-work">Research</span><span class="avatar" style="background:#7A8C86;">JN</span></div>
+            </div>
+            <div class="add-card-ghost">+ Add card</div>
+          </div>
+        </div>
+        <div>
+          <div class="col-head"><span class="col-title">In progress</span><span class="wip over">4 / 3</span></div>
+          <div class="col-body">
+            <div class="kcard">
+              <div class="kcard-title">Draft redesign brief — intro section</div>
+              <div class="kcard-foot"><span class="tag tag-work">Writing</span><span class="due soon">Today</span></div>
+            </div>
+            <div class="kcard">
+              <div class="kcard-title">Wireframe the dashboard screen</div>
+              <div class="kcard-foot"><span class="avatar" style="background:var(--primary);">AL</span><span class="due">Wed</span></div>
+            </div>
+            <div class="kcard">
+              <div class="kcard-title">Set up design token variables</div>
+              <div class="kcard-foot"><span class="tag tag-work">Design</span><span class="avatar" style="background:#B57A3D;">RK</span></div>
+            </div>
+            <div class="kcard" style="border-color:#EFC9AE;">
+              <div class="kcard-title">Get sign-off on color palette</div>
+              <div class="kcard-foot"><span class="tag tag-work">Design</span><span class="due soon">Overdue</span></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="col-head"><span class="col-title">Done</span><span class="wip">—</span></div>
+          <div class="col-body">
+            <div class="kcard" style="opacity:.6;">
+              <div class="kcard-title" style="text-decoration:line-through;">Kickoff meeting with stakeholders</div>
+              <div class="kcard-foot"><span class="avatar" style="background:#7A8C86;">JN</span></div>
+            </div>
+            <div class="kcard" style="opacity:.6;">
+              <div class="kcard-title" style="text-decoration:line-through;">Collect existing brand assets</div>
+              <div class="kcard-foot"><span class="avatar" style="background:var(--primary);">AL</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ WOOP GOALS ============ -->
+    <div class="screen" id="screen-woop">
+      <div class="topbar">
+        <div>
+          <h1>Set a goal that sticks</h1>
+          <div class="sub">A quick 4-step plan — Wish, Outcome, Obstacle, Plan</div>
+        </div>
+      </div>
+
+      <div class="woop-wrap">
+        <div class="woop-progress">
+          <span class="done"></span><span class="done"></span><span class="done"></span><span></span>
+        </div>
+        <div class="card">
+          <div class="woop-step-label">STEP 4 · PLAN</div>
+          <div class="woop-question">If the obstacle comes up, what will you do?</div>
+          <div class="woop-help">Finish this: "If it's 3pm and I still haven't opened the brief, then I will…" Concrete if-then plans hold up far better than good intentions alone.</div>
+          <textarea class="woop-textarea">If it's 3pm and I still haven't started, then I'll close Slack, set a 20-minute timer, and write just the opening paragraph — nothing else.</textarea>
+
+          <div class="woop-recap" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+            <div class="recap-row"><div class="recap-tag">WISH</div><div class="recap-text">Ship the redesign brief this week without it dragging into next.</div></div>
+            <div class="recap-row"><div class="recap-tag">OUTCOME</div><div class="recap-text">I'd feel relieved and the team could start wireframes on schedule.</div></div>
+            <div class="recap-row"><div class="recap-tag">OBSTACLE</div><div class="recap-text">I keep opening the doc, feeling overwhelmed, and closing it again.</div></div>
+          </div>
+
+          <div class="woop-nav">
+            <button class="btn btn-outline">← Back</button>
+            <button class="btn btn-solid" style="background:var(--primary);color:#fff;">Save goal plan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ WEEKLY REFLECTION ============ -->
+    <div class="screen" id="screen-reflect">
+      <div class="topbar">
+        <div>
+          <h1>Weekly reflection</h1>
+          <div class="sub">Jul 3 – Jul 9 · takes about 2 minutes</div>
+        </div>
+      </div>
+
+      <div class="reflect-grid">
+        <div class="card">
+          <div class="section-title">How the week went</div>
+          <div class="stat-row"><span class="stat-num">11</span><span class="stat-of">of 15 planned tasks done</span></div>
+          <div class="bar-row"><div class="bar-label">Work</div><div class="bar-track"><div class="bar-fill" style="width:80%;"></div></div></div>
+          <div class="bar-row"><div class="bar-label">Health</div><div class="bar-track"><div class="bar-fill" style="width:65%;background:#4A7A3A;"></div></div></div>
+          <div class="bar-row"><div class="bar-label">Home</div><div class="bar-track"><div class="bar-fill" style="width:40%;background:var(--accent);"></div></div></div>
+          <p style="margin-top:16px;font-size:13px;color:var(--muted);line-height:1.5;">No missed streaks this week — the morning routine held even on Wednesday when the schedule shifted.</p>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Your reflection</div>
+          <div class="reflect-q">
+            <label>What's one thing that worked well?</label>
+            <textarea placeholder="e.g. Breaking the brief into a 20-minute step actually got it moving."></textarea>
+          </div>
+          <div class="reflect-q" style="margin-top:16px;">
+            <label>What's one small adjustment for next week?</label>
+            <textarea placeholder="e.g. Move the home tasks earlier so they don't get squeezed out."></textarea>
+          </div>
+          <button class="btn btn-solid" style="background:var(--primary);color:#fff;margin-top:16px;width:100%;">Save reflection</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TEAM VIEW ============ -->
+    <div class="screen" id="screen-team">
+      <div class="topbar">
+        <div>
+          <h1>Design Team</h1>
+          <div class="sub">Manager digest · updated 9:02am</div>
+        </div>
+      </div>
+
+      <div class="team-grid">
+        <div>
+          <div class="card">
+            <div class="section-title">Today's digest</div>
+            <div class="digest-line"><div class="digest-dot"></div><div>3 cards moved to Done since yesterday. The redesign brief is still blocked on color sign-off — 2 days now.</div></div>
+            <div class="digest-line"><div class="digest-dot" style="background:var(--danger);"></div><div>"In progress" is over its WIP limit (4/3) — mostly on Alex's cards. Might be worth pausing new pickups.</div></div>
+            <div class="digest-line"><div class="digest-dot"></div><div>Cycle time on research cards is trending down — nice, that's 2 days faster than last sprint on average.</div></div>
+          </div>
+          <div class="card" style="margin-top:20px;">
+            <div class="section-title">Bottleneck this week</div>
+            <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.6;">Most cards are stalling in <strong>"Awaiting review"</strong> — average 2.4 days there vs. 0.6 days everywhere else. Might be worth a standing daily review slot.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Workload balance</div>
+          <div class="member-row">
+            <div class="avatar" style="background:var(--primary);width:32px;height:32px;font-size:12px;">AL</div>
+            <div class="member-info"><div class="member-name">Alex</div><div class="member-load">5 active cards</div></div>
+            <div class="load-bar"><div class="load-fill" style="width:90%;background:var(--danger);"></div></div>
+          </div>
+          <div class="member-row">
+            <div class="avatar" style="background:#7A8C86;width:32px;height:32px;font-size:12px;">JN</div>
+            <div class="member-info"><div class="member-name">Jordan</div><div class="member-load">2 active cards</div></div>
+            <div class="load-bar"><div class="load-fill" style="width:35%;background:#4A7A3A;"></div></div>
+          </div>
+          <div class="member-row">
+            <div class="avatar" style="background:#B57A3D;width:32px;height:32px;font-size:12px;">RK</div>
+            <div class="member-info"><div class="member-name">Riko</div><div class="member-load">3 active cards</div></div>
+            <div class="load-bar"><div class="load-fill" style="width:55%;background:var(--accent);"></div></div>
+          </div>
+          <button class="btn btn-outline" style="width:100%;margin-top:14px;font-size:13px;">Suggest rebalance…</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- FLOATING COACH -->
+<button class="coach-fab" onclick="openCoach()">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a7 7 0 00-7 7c0 2 1 3.5 2 4.5V17a2 2 0 002 2h6a2 2 0 002-2v-2.5c1-1 2-2.5 2-4.5a7 7 0 00-7-7z"/><path d="M10 21h4"/></svg>
+  Ask coach
+</button>
+
+<div class="coach-panel" id="coachPanel">
+  <div class="cp-head">
+    <div class="cp-title">Coach</div>
+    <button class="cp-close" onclick="closeCoach()">✕</button>
+  </div>
+  <div class="cp-body">
+    <div class="bubble ai">You've moved "Finish redesign brief" for 3 days in a row. Want to break it into one small step you could do right now?</div>
+    <div class="bubble user">Yeah, it just feels too big to start.</div>
+    <div class="bubble ai">Totally fair — that's usually an ability problem, not a motivation one. Here's a version broken down:</div>
+    <div class="step-suggestion">
+      <div class="st-title">Suggested next steps</div>
+      <div class="step-list">
+        <div class="step-item"><div class="checkbox"></div>Write just the opening paragraph (20 min)</div>
+        <div class="step-item"><div class="checkbox"></div>List the 3 problems the redesign solves</div>
+        <div class="step-item"><div class="checkbox"></div>Send draft to Jordan for a gut-check</div>
+      </div>
+      <div class="cp-actions">
+        <button class="btn btn-outline">Edit</button>
+        <button class="btn btn-solid" style="background:var(--primary);color:#fff;">Add to board</button>
+      </div>
+    </div>
+  </div>
+  <div class="cp-input">
+    <input placeholder="Tell the coach what's going on…">
+  </div>
+</div>
+
+<script>
+function showScreen(id, el){
+  document.querySelectorAll('.screen[id^="screen-"]').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if(el) el.classList.add('active');
+}
+function openCoach(){ document.getElementById('coachPanel').classList.add('open'); }
+function closeCoach(){ document.getElementById('coachPanel').classList.remove('open'); }
+function setMode(mode){
+  document.getElementById('btn-personal').classList.toggle('active', mode==='personal');
+  document.getElementById('btn-org').classList.toggle('active', mode==='org');
+  if(mode==='org'){
+    showScreen('team', document.querySelectorAll('.nav-item')[4]);
+  } else {
+    showScreen('dashboard', document.querySelectorAll('.nav-item')[0]);
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,102 @@
+// Design Tokens - BetterMe Enterprise
+// Enterprise-level design system based on ui-ux-pro-max recommendations
+
+// === Theme Colors ===
+// Light Theme (Default - Soft Lavender UI)
+$bg-light: #F3F3FA;
+$surface-light: #FFFFFF;
+$surface-2-light: #F0EFF8;
+$ink-light: #0E0D1B;
+$ink-soft-light: #595675;
+$muted-light: #8E8AA8;
+$border-light: #E5E3F0;
+$primary-light: #4F46E5;
+$primary-dark-light: #3B32C4;
+$primary-tint-light: #EEECFC;
+$accent-light: #F59E0B;
+$accent-tint-light: #FEF3C7;
+$destructive-light: #EF4444;
+$success-light: #10B981;
+
+// Dark Theme (Rich Dark Purple/Slate UI)
+$bg-dark: #0A0912;
+$surface-dark: #141322;
+$surface-2-dark: #211F36;
+$ink-dark: #F5F5FA;
+$ink-soft-dark: #A3A0BD;
+$muted-dark: #6A6687;
+$border-dark: #29273E;
+$primary-dark: #6366F1;
+$primary-dark-dark: #818CF8;
+$primary-tint-dark: #1E1B4B;
+$accent-dark: #FBBF24;
+$accent-tint-dark: #78350F;
+$destructive-dark: #F87171;
+$success-dark: #34D399;
+
+// === Spacing Scale ===
+$spacing-xs: 4px;
+$spacing-sm: 12px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 20px;
+$spacing-2xl: 24px;
+$spacing-3xl: 32px;
+
+// === Border Radius ===
+$radius-sm: 12px;
+$radius-md: 18px;
+$radius-lg: 24px;
+$radius-full: 999px;
+
+// === Typography ===
+$font-display: 'Montserrat', sans-serif;
+$font-body: 'Montserrat', sans-serif;
+$font-mono: 'JetBrains Mono', monospace;
+
+$font-size-xs: 11.5px;
+$font-size-sm: 12.5px;
+$font-size-base: 14px;
+$font-size-md: 14.5px;
+$font-size-lg: 20px;
+$font-size-xl: 25px;
+$font-size-2xl: 32px;
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$line-height-tight: 1.28;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.6;
+
+// === Shadows ===
+// Modern soft ambient shadows matching layout
+$shadow-sm: 0 2px 8px rgba(14, 13, 27, 0.02);
+$shadow-md: 0 10px 25px -5px rgba(14, 13, 27, 0.04), 0 8px 10px -6px rgba(14, 13, 27, 0.04);
+$shadow-lg: 0 20px 35px -5px rgba(14, 13, 27, 0.08), 0 10px 15px -8px rgba(14, 13, 27, 0.08);
+
+// === Transitions ===
+$transition-fast: 150ms;
+$transition-normal: 200ms;
+$transition-slow: 300ms;
+
+$ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+$ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+// === Breakpoints ===
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;
+$breakpoint-2xl: 1536px;
+
+// === Z-Index Scale ===
+$z-dropdown: 1000;
+$z-sticky: 1020;
+$z-fixed: 1030;
+$z-modal-backdrop: 1040;
+$z-modal: 1050;
+$z-popover: 1060;
+$z-tooltip: 1070;

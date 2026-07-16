@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BetterMe — Sign in</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #F6F7F5;
+    --surface: #FFFFFF;
+    --surface-2: #EFF2EF;
+    --ink: #1B2321;
+    --ink-soft: #4B564F;
+    --muted: #8A9490;
+    --border: #E1E5E0;
+    --primary: #2F6F62;
+    --primary-dark: #234F46;
+    --primary-tint: #E6EFEC;
+    --accent: #E8A24C;
+    --accent-tint: #FBEBD3;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 1px 2px rgba(27,35,33,0.04), 0 8px 24px rgba(27,35,33,0.06);
+    --font-display: "Fraunces", serif;
+    --font-body: "Inter", sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--font-body);}
+  body{-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:var(--font-display);font-weight:500;margin:0;letter-spacing:-0.01em;}
+  p{margin:0;}
+  button{font-family:var(--font-body);cursor:pointer;}
+  a{color:inherit;}
+  input{font-family:var(--font-body);}
+
+  .wrap{display:flex;min-height:100vh;}
+
+  /* ---------- LEFT: brand panel ---------- */
+  .brand-panel{
+    flex:0 0 44%;background:linear-gradient(160deg, var(--primary-dark), var(--primary) 65%, #3C8474);
+    color:#fff;padding:56px 56px;display:flex;flex-direction:column;justify-content:space-between;
+    position:relative;overflow:hidden;
+  }
+  .brand-panel::before{
+    content:"";position:absolute;left:-120px;bottom:-140px;width:420px;height:420px;border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,0.08), transparent 70%);
+  }
+  .brand-panel::after{
+    content:"";position:absolute;right:-80px;top:-100px;width:280px;height:280px;border-radius:50%;
+    background:radial-gradient(circle, rgba(232,162,76,0.18), transparent 70%);
+  }
+  .bp-top{display:flex;align-items:center;gap:10px;position:relative;z-index:1;}
+  .brand-mark{
+    width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,0.14);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .brand-mark svg{width:17px;height:17px;}
+  .brand-name{font-family:var(--font-display);font-size:20px;font-weight:600;}
+
+  .bp-mid{position:relative;z-index:1;max-width:400px;}
+  .bp-eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,0.6);font-weight:600;margin-bottom:16px;}
+  .bp-headline{font-size:32px;line-height:1.28;font-weight:500;margin-bottom:18px;}
+  .bp-sub{font-size:14.5px;line-height:1.6;color:rgba(255,255,255,0.78);}
+
+  .bp-ring-demo{display:flex;align-items:center;gap:16px;margin-top:36px;position:relative;z-index:1;}
+  .ring-wrap{position:relative;width:56px;height:56px;flex-shrink:0;}
+  .ring-wrap svg{transform:rotate(-90deg);width:56px;height:56px;}
+  .ring-track{fill:none;stroke:rgba(255,255,255,0.16);stroke-width:6;}
+  .ring-progress{fill:none;stroke:var(--accent);stroke-width:6;stroke-linecap:round;}
+  .ring-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11.5px;font-weight:600;}
+  .bp-quote-title{font-size:13.5px;font-weight:600;}
+  .bp-quote-sub{font-size:12.5px;color:rgba(255,255,255,0.65);margin-top:2px;}
+
+  .bp-bottom{position:relative;z-index:1;font-size:12.5px;color:rgba(255,255,255,0.55);}
+
+  /* ---------- RIGHT: form panel ---------- */
+  .form-panel{
+    flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px;
+  }
+  .form-card{width:100%;max-width:400px;}
+
+  .tabs{display:flex;background:var(--surface-2);border-radius:999px;padding:4px;margin-bottom:32px;}
+  .tabs button{
+    flex:1;border:none;background:none;padding:9px 0;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--muted);
+    transition:.15s;
+  }
+  .tabs button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);}
+
+  .form-view{display:none;}
+  .form-view.active{display:block;}
+
+  .fv-head{margin-bottom:26px;}
+  .fv-head h1{font-size:25px;margin-bottom:6px;}
+  .fv-head .sub{color:var(--muted);font-size:14px;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;}
+  .field input{
+    width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;
+    font-size:14px;outline:none;background:var(--surface);color:var(--ink);
+  }
+  .field input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+  .field-hint{font-size:11.5px;color:var(--muted);margin-top:6px;}
+
+  .row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+  .remember{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);}
+  .remember input{width:15px;height:15px;accent-color:var(--primary);}
+  .link-sm{font-size:13px;color:var(--primary-dark);font-weight:600;text-decoration:none;}
+  .link-sm:hover{text-decoration:underline;}
+
+  .btn-primary{
+    width:100%;border:none;background:var(--primary);color:#fff;padding:12.5px 0;border-radius:999px;
+    font-size:14.5px;font-weight:600;box-shadow:0 8px 20px rgba(47,111,98,0.22);
+  }
+  .btn-primary:hover{background:var(--primary-dark);}
+
+  .divider{display:flex;align-items:center;gap:12px;margin:22px 0;color:var(--muted);font-size:12px;}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border);}
+
+  .oauth-row{display:flex;gap:10px;}
+  .oauth-btn{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--border);
+    background:var(--surface);border-radius:var(--radius-sm);padding:10px 0;font-size:13px;font-weight:600;color:var(--ink-soft);
+  }
+  .oauth-btn:hover{border-color:var(--primary);color:var(--ink);}
+  .oauth-btn svg{width:16px;height:16px;}
+
+  .foot-note{text-align:center;font-size:13px;color:var(--muted);margin-top:26px;}
+  .foot-note a{color:var(--primary-dark);font-weight:600;text-decoration:none;}
+  .foot-note a:hover{text-decoration:underline;}
+
+  .legal-note{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:18px;text-align:center;}
+  .legal-note a{color:var(--ink-soft);font-weight:600;}
+
+  .intent-toggle{display:flex;gap:10px;margin-bottom:20px;}
+  .intent-card{
+    flex:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:12px;cursor:pointer;transition:.15s;
+  }
+  .intent-card.active{border-color:var(--primary);background:var(--primary-tint);}
+  .intent-card .it-title{font-size:13px;font-weight:700;margin-bottom:2px;}
+  .intent-card .it-sub{font-size:11.5px;color:var(--muted);}
+  .intent-card.active .it-sub{color:var(--primary-dark);}
+
+  @media (max-width:860px){
+    .brand-panel{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- LEFT BRAND PANEL -->
+  <div class="brand-panel">
+    <div class="bp-top">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 15c3-1 4-6 8-6s5 5 8 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <span class="brand-name">BetterMe</span>
+    </div>
+
+    <div class="bp-mid">
+      <div class="bp-eyebrow">Tasks, routines, and a coach that remembers</div>
+      <div class="bp-headline">Follow through on what actually matters — for you, and your team.</div>
+      <div class="bp-sub">One board for tasks. One engine underneath that turns goals into small next steps and routines that stick.</div>
+
+      <div class="bp-ring-demo">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 56 56">
+            <circle class="ring-track" cx="28" cy="28" r="22"/>
+            <circle class="ring-progress" cx="28" cy="28" r="22" stroke-dasharray="138" stroke-dashoffset="20"/>
+          </svg>
+          <div class="ring-label">12</div>
+        </div>
+        <div>
+          <div class="bp-quote-title">12-day morning streak</div>
+          <div class="bp-quote-sub">"Anchored after your coffee — no reminders needed."</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bp-bottom">Used for personal routines and by teams who'd rather ship than sit in status meetings.</div>
+  </div>
+
+  <!-- RIGHT FORM PANEL -->
+  <div class="form-panel">
+    <div class="form-card">
+
+      <div class="tabs">
+        <button class="active" id="tab-login" onclick="setTab('login')">Sign in</button>
+        <button id="tab-signup" onclick="setTab('signup')">Create account</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div class="form-view active" id="view-login">
+        <div class="fv-head">
+          <h1>Welcome back</h1>
+          <div class="sub">Good to see you — let's see what's on today.</div>
+        </div>
+
+        <div class="field">
+          <label>Email</label>
+          <input type="email" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" placeholder="••••••••••">
+        </div>
+
+        <div class="row-between">
+          <label class="remember"><input type="checkbox"> Keep me signed in</label>
+          <a href="#" class="link-sm">Forgot password?</a>
+        </div>
+
+        <button class="btn-primary">Sign in</button>
+
+        <div class="divider">or continue with</div>
+        <div class="oauth-row">
+          <button class="oauth-btn">
+            <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.5 12.2c0-.8-.07-1.4-.2-2H12v3.8h5.9c-.25 1.3-1 2.4-2.15 3.15v2.6h3.5c2-1.85 3.25-4.6 3.25-7.55z"/><path fill="#34A853" d="M12 23c2.9 0 5.35-.95 7.15-2.6l-3.5-2.6c-.95.65-2.2 1.05-3.65 1.05-2.8 0-5.2-1.9-6.05-4.4H2.3v2.7C4.1 20.5 7.75 23 12 23z"/><path fill="#FBBC05" d="M5.95 14.45c-.2-.65-.35-1.35-.35-2.05s.15-1.4.35-2.05V7.65H2.3A10.9 10.9 0 001 12.4c0 1.75.4 3.4 1.3 4.75l3.65-2.7z"/><path fill="#EA4335" d="M12 5.9c1.6 0 3 .55 4.15 1.6l3.1-3.1C17.35 2.6 14.9 1.7 12 1.7c-4.25 0-7.9 2.5-9.7 6.15l3.65 2.7C6.8 7.8 9.2 5.9 12 5.9z"/></svg>
+            Google
+          </button>
+          <button class="oauth-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.04c-.02-2.2 1.8-3.26 1.88-3.31-1.02-1.5-2.62-1.7-3.18-1.72-1.36-.14-2.66.8-3.34.8-.7 0-1.75-.78-2.88-.76-1.48.02-2.85.87-3.6 2.2-1.55 2.7-.4 6.68 1.1 8.87.74 1.07 1.6 2.28 2.75 2.24 1.1-.04 1.52-.72 2.85-.72s1.7.72 2.87.7c1.18-.02 1.93-1.08 2.65-2.16.53-.78.75-1.18 1.17-2.07-3.08-1.18-3.24-4.4-3.27-4.87zM14.85 5.1c.6-.73 1-1.75.9-2.77-.86.03-1.9.58-2.52 1.3-.55.65-1.03 1.68-.9 2.66.96.07 1.94-.48 2.52-1.19z"/></svg>
+            Apple
+          </button>
+        </div>
+
+        <div class="foot-note">New here? <a href="#" onclick="setTab('signup');return false;">Create an account</a></div>
+      </div>
+
+      <!-- SIGN UP -->
+      <div class="form-view" id="view-signup">
+        <div class="fv-head">
+          <h1>Start with a small step</h1>
+          <div class="sub">Set up in under a minute — no credit card.</div>
+        </div>
+
+        <div class="intent-toggle">
+          <div class="intent-card active" id="intent-personal" onclick="setIntent('personal')">
+            <div class="it-title">For myself</div>
+            <div class="it-sub">Personal tasks & routines</div>
+          </div>
+          <div class="intent-card" id="intent-team" onclick="setIntent('team')">
+            <div class="it-title">For my team</div>
+            <div class="it-sub">Projects & workload</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Full name</label>
+          <input type="text" placeholder="Alex Rivera">
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" placeholder="At least 8 characters">
+          <div class="field-hint">Use a mix of letters, numbers, and symbols.</div>
+        </div>
+
+        <button class="btn-primary">Create account</button>
+
+        <div class="divider">or continue with</div>
+        <div class="oauth-row">
+          <button class="oauth-btn">
+            <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.5 12.2c0-.8-.07-1.4-.2-2H12v3.8h5.9c-.25 1.3-1 2.4-2.15 3.15v2.6h3.5c2-1.85 3.25-4.6 3.25-7.55z"/><path fill="#34A853" d="M12 23c2.9 0 5.35-.95 7.15-2.6l-3.5-2.6c-.95.65-2.2 1.05-3.65 1.05-2.8 0-5.2-1.9-6.05-4.4H2.3v2.7C4.1 20.5 7.75 23 12 23z"/><path fill="#FBBC05" d="M5.95 14.45c-.2-.65-.35-1.35-.35-2.05s.15-1.4.35-2.05V7.65H2.3A10.9 10.9 0 001 12.4c0 1.75.4 3.4 1.3 4.75l3.65-2.7z"/><path fill="#EA4335" d="M12 5.9c1.6 0 3 .55 4.15 1.6l3.1-3.1C17.35 2.6 14.9 1.7 12 1.7c-4.25 0-7.9 2.5-9.7 6.15l3.65 2.7C6.8 7.8 9.2 5.9 12 5.9z"/></svg>
+            Google
+          </button>
+          <button class="oauth-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.04c-.02-2.2 1.8-3.26 1.88-3.31-1.02-1.5-2.62-1.7-3.18-1.72-1.36-.14-2.66.8-3.34.8-.7 0-1.75-.78-2.88-.76-1.48.02-2.85.87-3.6 2.2-1.55 2.7-.4 6.68 1.1 8.87.74 1.07 1.6 2.28 2.75 2.24 1.1-.04 1.52-.72 2.85-.72s1.7.72 2.87.7c1.18-.02 1.93-1.08 2.65-2.16.53-.78.75-1.18 1.17-2.07-3.08-1.18-3.24-4.4-3.27-4.87zM14.85 5.1c.6-.73 1-1.75.9-2.77-.86.03-1.9.58-2.52 1.3-.55.65-1.03 1.68-.9 2.66.96.07 1.94-.48 2.52-1.19z"/></svg>
+            Apple
+          </button>
+        </div>
+
+        <div class="legal-note">By continuing, you agree to the <a href="#">Terms</a> and <a href="#">Privacy Policy</a>. Your personal data stays separate from any team workspace you join.</div>
+
+        <div class="foot-note">Already have an account? <a href="#" onclick="setTab('login');return false;">Sign in</a></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+function setTab(tab){
+  document.getElementById('tab-login').classList.toggle('active', tab==='login');
+  document.getElementById('tab-signup').classList.toggle('active', tab==='signup');
+  document.getElementById('view-login').classList.toggle('active', tab==='login');
+  document.getElementById('view-signup').classList.toggle('active', tab==='signup');
+}
+function setIntent(kind){
+  document.getElementById('intent-personal').classList.toggle('active', kind==='personal');
+  document.getElementById('intent-team').classList.toggle('active', kind==='team');
+}
+</script>
+
+</body>
+</html>

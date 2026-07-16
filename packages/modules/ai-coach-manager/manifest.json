@@ -1,0 +1,19 @@
+{
+  "id": "ai-coach-manager",
+  "name": "AI Coach Manager",
+  "description": "Growth Engine: AI-powered behavior change coaching",
+  "version": "0.1.0",
+  "featureFlag": "ai_coach_enabled",
+  "routes": [
+    {
+      "path": "/coach",
+      "component": "./AICoachView"
+    }
+  ],
+  "navEntry": {
+    "label": "AI Coach",
+    "icon": "Brain",
+    "path": "/coach"
+  },
+  "permissions": ["read:behavior_profile", "write:behavior_profile"]
+}

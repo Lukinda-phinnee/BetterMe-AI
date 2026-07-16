@@ -1,0 +1,19 @@
+{
+  "id": "board-view",
+  "name": "Board View",
+  "description": "Kanban-style board view for cards and lists",
+  "version": "0.1.0",
+  "featureFlag": "board_view_enabled",
+  "routes": [
+    {
+      "path": "/board/:id",
+      "component": "./BoardView"
+    }
+  ],
+  "navEntry": {
+    "label": "Board",
+    "icon": "LayoutGrid",
+    "path": "/board"
+  },
+  "permissions": ["read:boards", "write:boards"]
+}
