@@ -260,3 +260,47 @@ USING (
 DROP TRIGGER IF EXISTS update_chat_conversations_updated_at ON chat_conversations;
 CREATE TRIGGER update_chat_conversations_updated_at BEFORE UPDATE ON chat_conversations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Goals table (WOOP method)
+CREATE TABLE IF NOT EXISTS goals (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL,
+  board_id UUID REFERENCES boards(id) ON DELETE CASCADE,
+  wish TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  obstacle TEXT NOT NULL,
+  plan TEXT NOT NULL,
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'archived')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for goals table
+CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
+CREATE INDEX IF NOT EXISTS idx_goals_board_id ON goals(board_id);
+CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
+
+-- Enable RLS for goals table
+ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for goals
+CREATE POLICY "Users can view their own goals" 
+ON goals FOR SELECT 
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own goals" 
+ON goals FOR INSERT 
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own goals" 
+ON goals FOR UPDATE 
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own goals" 
+ON goals FOR DELETE 
+USING (auth.uid() = user_id);
+
+-- Trigger to auto-update updated_at for goals
+DROP TRIGGER IF EXISTS update_goals_updated_at ON goals;
+CREATE TRIGGER update_goals_updated_at BEFORE UPDATE ON goals
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

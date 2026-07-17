@@ -174,16 +174,18 @@ export default function DashboardPage() {
   const circumference = 2 * Math.PI * 26
   const strokeDashoffset = circumference - (completionRate / 100) * circumference
 
-  // Convert cards to task format for nearest tasks
-  const tasks = cards.map(card => ({
-    id: card.id,
-    title: card.title,
-    done: card.column_status === 'done',
-    tag: card.labels?.[0]?.name || 'Work',
-    tagType: 'work',
-    due: card.due_date ? new Date(card.due_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'No due date',
-    description: card.description || ''
-  }))
+  // Convert cards to task format for nearest tasks (only todo and review)
+  const tasks = cards
+    .filter(card => card.column_status === 'todo' || card.column_status === 'review')
+    .map(card => ({
+      id: card.id,
+      title: card.title,
+      done: card.column_status === 'done',
+      tag: card.labels?.[0]?.name || 'Work',
+      tagType: 'work',
+      due: card.due_date ? new Date(card.due_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'No due date',
+      description: card.description || ''
+    }))
   const [schedulePage, setSchedulePage] = useState(0)
 
   // Fetch AI coaching insights
@@ -230,14 +232,48 @@ export default function DashboardPage() {
     fetchCoaching()
   }, [cards, authToken])
 
-  const scheduleItems = [
-    { time: '8:00 AM', name: 'Morning pages + planning review', duration: '8h to 8h30', color: '#e0f2fe' },
-    { time: '9:00 AM', name: 'Reply to client emails', duration: '9h to 9h45', color: '#fef3c7' },
-    { time: '10:00 AM', name: 'Team standup meeting', duration: '10h to 10h30', color: '#d1fae5' },
-    { time: '11:00 AM', name: 'Draft redesign brief', duration: '11h to 12h', color: '#ede9fe' },
-    { time: '1:00 PM', name: '20-min walk after lunch', duration: '13h to 13h20', color: '#fce7f3' },
-    { time: '2:00 PM', name: 'Continue redesign brief', duration: '14h to 16h', color: '#e0f2fe' },
-  ]
+  // Get today's schedule from real data
+  const getTodaySchedule = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    // Filter cards due today
+    const todayCards = cards.filter(card => {
+      if (!card.due_date) return false
+      const dueDate = new Date(card.due_date)
+      dueDate.setHours(0, 0, 0, 0)
+      return dueDate.getTime() === today.getTime()
+    })
+    
+    // Sort by due time
+    const sortedCards = todayCards.sort((a, b) => {
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+    })
+    
+    // Convert to schedule format
+    const colors = ['#e0f2fe', '#fef3c7', '#d1fae5', '#ede9fe', '#fce7f3', '#e0f2fe']
+    return sortedCards.map((card, index) => {
+      const dueDate = new Date(card.due_date)
+      const startTime = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+      
+      // Estimate duration (could be enhanced with actual duration data)
+      const endTime = new Date(dueDate.getTime() + 60 * 60 * 1000) // Add 1 hour default
+      const endTimeStr = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+      
+      return {
+        time: startTime,
+        name: card.title,
+        duration: `${startTime} to ${endTimeStr}`,
+        color: colors[index % colors.length],
+        cardId: card.id
+      }
+    })
+  }
+  
+  const scheduleItems = getTodaySchedule()
 
   const itemsPerPage = 3
   const totalPages = Math.ceil(scheduleItems.length / itemsPerPage)

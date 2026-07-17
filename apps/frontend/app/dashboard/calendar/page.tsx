@@ -418,7 +418,7 @@ export default function CalendarPage() {
                         }}
                         title={task.title}
                       >
-                        {isDueDate ? formatDueTime(task.due_date) : task.title}
+                        {position === 'start' || position === 'single' ? task.title : position === 'end' ? formatDueTime(task.due_date) : ''}
                       </div>
                     )
                   })}
@@ -439,7 +439,7 @@ export default function CalendarPage() {
         <h3>Upcoming Tasks</h3>
         <div className="upcoming-grid">
           {cards
-            .filter(card => card.due_date && new Date(card.due_date) >= new Date() && card.column_status !== 'done')
+            .filter(card => card.due_date && (card.column_status === 'todo' || card.column_status === 'review'))
             .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
             .slice(0, 6)
             .map(card => (

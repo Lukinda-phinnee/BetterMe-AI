@@ -25,8 +25,8 @@ export default function DashboardLayout({
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [isMounted, setIsMounted] = useState(false)
   const [boardId, setBoardId] = useState<string | null>(null)
-  const [refreshDataFn, setRefreshDataFnInternal] = useState<{ fn: () => Promise<void> }>({ fn: async () => {} })
-  const setRefreshDataFn = (fn: () => Promise<void>) => setRefreshDataFnInternal({ fn })
+  const refreshDataFnRef = useRef<() => Promise<void>>(async () => {})
+  const setRefreshDataFn = (fn: () => Promise<void>) => { refreshDataFnRef.current = fn }
   const [showColumnField, setShowColumnField] = useState(false)
   const chatRef = useRef<HTMLDivElement>(null)
 
@@ -161,7 +161,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <DashboardContext.Provider value={{ showReviewColumn, setShowReviewColumn, showAddTask, setShowAddTask, authToken, setAuthToken, boardId, setBoardId, refreshData: refreshDataFn.fn, setRefreshDataFn, showColumnField, setShowColumnField }}>
+    <DashboardContext.Provider value={{ showReviewColumn, setShowReviewColumn, showAddTask, setShowAddTask, authToken, setAuthToken, boardId, setBoardId, refreshData: refreshDataFnRef.current, setRefreshDataFn, showColumnField, setShowColumnField }}>
       <div className="app" data-theme={theme}>
       {/* Mobile sidebar overlay */}
       <div 
@@ -535,7 +535,7 @@ export default function DashboardLayout({
         <AddTaskModal 
           isOpen={showAddTask}
           onClose={() => setShowAddTask(false)}
-          onAddTask={refreshDataFn.fn}
+          onAddTask={refreshDataFnRef.current}
           boardId={boardId}
           authToken={authToken}
           showColumnField={showColumnField}
