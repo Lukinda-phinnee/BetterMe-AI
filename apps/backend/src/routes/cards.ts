@@ -7,21 +7,44 @@ const router: Router = Router()
 // Get cards for board
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const boardId = req.query.board_id
-    
+    const boardId = req.query.board_id as string | undefined
+    const goalId = req.query.goal_id as string | undefined
+    const userId = req.user?.id
+
+    // Cards belong to the user indirectly via board → workspace → user.
+    // Resolve the user's board ids so we never leak other users' cards.
+    const boardQuery = supabase
+      .from('boards')
+      .select('id, workspaces!inner(user_id)')
+      .eq('workspaces.user_id', userId)
+
+    const { data: userBoards, error: boardError } = boardId
+      ? await supabase
+          .from('boards')
+          .select('id, workspaces!inner(user_id)')
+          .eq('workspaces.user_id', userId)
+          .eq('id', boardId)
+      : await boardQuery
+
+    if (boardError) throw boardError
+    const boardIds = (userBoards || []).map((b: any) => b.id)
+
+    // No accessible boards → no cards.
+    if (boardIds.length === 0) return res.json([])
+
     let query = supabase
       .from('cards')
       .select('*')
-    
-    if (boardId) {
-      query = query.eq('board_id', boardId)
-    }
+      .in('board_id', boardIds)
+
+    if (goalId) query = query.eq('goal_id', goalId)
 
     const { data, error } = await query
-    
+
     if (error) throw error
     res.json(data)
   } catch (error) {
+    console.error('Error fetching cards:', error)
     res.status(500).json({ error: 'Failed to fetch cards' })
   }
 })
@@ -29,10 +52,11 @@ router.get('/', authMiddleware, async (req, res) => {
 // Create card
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { 
-      board_id, 
-      list_id, 
-      title, 
+    const {
+      board_id,
+      goal_id,
+      list_id,
+      title,
       description,
       due_date,
       priority,
@@ -72,6 +96,7 @@ router.post('/', authMiddleware, async (req, res) => {
       .from('cards')
       .insert({
         board_id,
+        goal_id: goal_id || null,
         list_id,
         title,
         description,
@@ -116,6 +141,23 @@ router.patch('/:id', authMiddleware, async (req, res) => {
     res.json(data)
   } catch (error) {
     res.status(500).json({ error: 'Failed to update card' })
+  }
+})
+
+// Delete card
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params
+    
+    const { error } = await supabase
+      .from('cards')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete card' })
   }
 })
 

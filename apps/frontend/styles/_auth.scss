@@ -1,6 +1,6 @@
 // Auth Pages — Premium Lavender/Violet Design System
-@import './_variables.scss';
-@import './_themes.scss';
+@use './variables' as *;
+@use './themes' as *;
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
 

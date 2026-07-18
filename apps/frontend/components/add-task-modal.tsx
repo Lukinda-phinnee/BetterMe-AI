@@ -1,6 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+
+interface Goal {
+  id: string
+  wish: string
+  status?: string
+}
 
 interface AddTaskModalProps {
   isOpen: boolean
@@ -22,6 +28,19 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
   const [newTaskAssignee, setNewTaskAssignee] = useState('')
   const [newTaskColumn, setNewTaskColumn] = useState('todo')
   const [newTaskColor, setNewTaskColor] = useState('#93c5fd')
+  const [newTaskGoalId, setNewTaskGoalId] = useState<string>('')
+  const [goals, setGoals] = useState<Goal[]>([])
+
+  // Load the user's goals so they can optionally link the task to one.
+  useEffect(() => {
+    if (!isOpen || !authToken) return
+    fetch('http://localhost:3001/api/goals', {
+      headers: { Authorization: `Bearer ${authToken}` }
+    })
+      .then(res => res.ok ? res.json() : [])
+      .then((data: Goal[]) => setGoals(data))
+      .catch(() => setGoals([]))
+  }, [isOpen, authToken])
 
   const columnColorRecommendations: Record<string, string> = {
     'todo': '#93c5fd',
@@ -68,6 +87,7 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
         headers,
         body: JSON.stringify({
           board_id: boardId,
+          goal_id: newTaskGoalId || null,
           title: newTaskTitle,
           description: newTaskDescription,
           due_date: newTaskDue || null,
@@ -103,6 +123,7 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
       setNewTaskAssignee('')
       setNewTaskColumn('todo')
       setNewTaskColor('#93c5fd')
+      setNewTaskGoalId('')
       onClose()
     } catch (error) {
       console.error('Error creating card:', error)
@@ -170,7 +191,7 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
                 className="form-input"
               />
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="task-tag">Category</label>
               <select
@@ -192,6 +213,25 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
                 <option value="Home">Home</option>
               </select>
             </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="task-goal">Link to goal <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span></label>
+            <select
+              id="task-goal"
+              value={newTaskGoalId}
+              onChange={(e) => setNewTaskGoalId(e.target.value)}
+              className="form-select"
+              disabled={goals.length === 0}
+            >
+              <option value="">None</option>
+              {goals.map(goal => (
+                <option key={goal.id} value={goal.id}>{goal.wish}</option>
+              ))}
+            </select>
+            {goals.length === 0 && (
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>No goals yet — this task will be standalone.</span>
+            )}
           </div>
 
           {showColumnField && (

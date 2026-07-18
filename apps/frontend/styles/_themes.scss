@@ -1,5 +1,6 @@
 // Theme Mixins and Classes
-@import './_variables.scss';
+@use './variables' as *;
+@forward './variables';
 
 // Light Theme (Default)
 :root {

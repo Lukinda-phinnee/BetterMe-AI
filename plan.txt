@@ -1,0 +1,53 @@
+<GUIDED_QUESTION>
+{ "step":"wish", "question":"...", "suggestions":["...","..."], "placeholder":"..." }
+</GUIDED_QUESTION>
+
+The backend parses it, strips it from the visible reply, and returns it as a separate guidedQuestion field on the /coaching JSON response. The frontend renders the panel only when that field is present — so the AI alone controls when guided mode is active. No buttons, no client-side mode state.
+
+This gives all four of your behaviors for free:
+
+AI decides mode → presence of guidedQuestion is the signal.
+Collapse between steps → panel closes on Confirm; reopens only if the next reply also carries guidedQuestion.
+Mirrored to chat → the confirmed answer is sent through the normal message flow (persisted as a user message, shown in the transcript), so the existing history model is untouched.
+Select then confirm → chip click fills the draft input; user edits/keeps it; Confirm locks it.
+1. Backend — apps/backend/src/routes/ai.ts
+a) Rewrite woopCoachPrompt (line ~193):
+
+Add the autonomous-mode rule: choose guided Q&A (emit <GUIDED_QUESTION>) when the user has stated a goal direction but a WOOP component is still vague; choose plain chat for exploration, encouragement, or follow-up discussion.
+Specify the <GUIDED_QUESTION> JSON schema and the rule "emit at most ONE per message, never alongside <WOOP_DATA>."
+Strengthen the evidence-based task generation in the existing <WOOP_DATA> block: tasks must be (1) implementation intentions phrased "If [cue], then I will [behavior]", (2) specific + time/place anchored, (3) one habit-stack task anchored to an existing routine (Fogg), (4) realistic daily granularity. Cite the framework in the prompt so the model grounds the output.
+b) /coaching handler (line ~229):
+
+After the existing <WOOP_DATA> extraction, add a parallel <GUIDED_QUESTION> extraction: parse JSON, strip from reply, validate shape (step, question, suggestions[], optional placeholder), return as guidedQuestion.
+Keep the two mutually exclusive: if <WOOP_DATA> fired (finalization), ignore/skip <GUIDED_QUESTION>.
+Add guidedQuestion to the res.json(...) payload (line ~426).
+No DB schema changes — guided answers persist as ordinary chat messages.
+
+2. Frontend — apps/frontend/app/dashboard/goals/page.tsx
+a) New state:
+
+guidedQuestion: { step, question, suggestions, placeholder } | null
+guidedDraft: string (the draft answer, filled by chip click or typing)
+b) In handleSendMessage response handling (line ~302):
+
+Read data.guidedQuestion; if present, setGuidedQuestion(...) (panel opens), else setGuidedQuestion(null) (stays closed).
+c) New handleGuidedConfirm:
+
+Builds the answer from guidedDraft, clears guidedQuestion + guidedDraft (panel collapses), then calls the existing send path with the answer text → mirrored to chat, persisted, AI replies (and may reopen the panel with the next step).
+d) New panel JSX, placed inside .goal-chat-input-outer-wrapper as a sibling AFTER .goal-chat-input-parent-container, wrapped so both share one centered 800px column. Since the wrapper is bottom-anchored (bottom: 0 in has-messages), adding the panel below the input makes the wrapper grow upward, pushing the input up — exactly as you described.
+
+Panel contents: question text, suggestion chips (click → setGuidedDraft(suggestion)), a textarea for custom/edited answer, and a Confirm button (disabled while draft empty). Escape closes/cancels.
+3. Styles — apps/frontend/styles/_dashboard.scss
+.goal-chat-input-stack: new centered column wrapper (flex-direction: column; gap: 8px; width: 100%; max-width: 800px) holding the parent container + panel; replaces the direct child so both stay aligned and the panel pushes the input up.
+.goal-chat-guided-panel: same design as .goal-chat-input-parent-container — same #1E293B light / #FFFFFF dark background, 24px radius, border, shadow, 8px padding, column layout.
+.goal-chat-guided-question: prompt text (light-on-dark in light mode, inverted in dark — reusing the parent's token scheme).
+.goal-chat-guided-chips / .goal-chat-guided-chip: pill buttons (translucent-white-on-slate in light, translucent-dark-on-white in dark — mirrors .goal-chat-pill), with an active state for the selected chip.
+.goal-chat-guided-input: textarea matching .goal-chat-textarea but on the panel's dark/white background.
+.goal-chat-guided-confirm: primary action button.
+Out of scope (deliberately)
+No new DB columns or migrations.
+No changes to the dashboard ChatHistorySidebar (the goal page uses its own history list).
+Daily-task evidence basis is delivered via the prompt rewrite (drives the existing <WOOP_DATA> tasks) rather than a separate endpoint.
+Verification
+npx tsc --noEmit on the frontend.
+Manual flow check for you to run in next dev: start a goal → AI asks Wish via panel → select/confirm → panel collapses, answer appears in chat → AI asks Outcome → ... → finalize creates goal + evidence-based tasks.

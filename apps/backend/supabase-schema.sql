@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS boards (
 CREATE TABLE IF NOT EXISTS cards (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   board_id UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  goal_id UUID REFERENCES goals(id) ON DELETE SET NULL,
   list_id UUID,
   title VARCHAR(255) NOT NULL,
   description TEXT,
@@ -50,6 +51,7 @@ ALTER TABLE cards ALTER COLUMN list_id DROP NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_workspaces_user_id ON workspaces(user_id);
 CREATE INDEX IF NOT EXISTS idx_boards_workspace_id ON boards(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_cards_board_id ON cards(board_id);
+CREATE INDEX IF NOT EXISTS idx_cards_goal_id ON cards(goal_id);
 CREATE INDEX IF NOT EXISTS idx_cards_column_status ON cards(column_status);
 
 -- Enable Row Level Security (RLS)
@@ -187,6 +189,9 @@ CREATE TABLE IF NOT EXISTS chat_conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL,
   title VARCHAR(255) DEFAULT 'New Chat',
+  -- Once TRUE the AI auto-titler will never overwrite `title` again. Set by
+  -- the auto-titler, the WOOP-wish path, and the manual rename endpoint.
+  title_locked BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

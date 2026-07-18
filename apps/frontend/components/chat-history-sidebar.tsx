@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useConfirm } from './confirm-provider'
 
 interface Conversation {
   id: string
@@ -24,6 +25,7 @@ export function ChatHistorySidebar({
   onDeleteConversation,
   onRenameConversation
 }: ChatHistorySidebarProps) {
+  const confirm = useConfirm()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -85,7 +87,14 @@ export function ChatHistorySidebar({
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this conversation?')) return
+    const confirmed = await confirm({
+      title: 'Delete conversation?',
+      message: 'This conversation and its messages will be permanently removed. This cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      danger: true,
+    })
+    if (!confirmed) return
 
     try {
       const token = localStorage.getItem('authToken')

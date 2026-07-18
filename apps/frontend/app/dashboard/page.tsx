@@ -205,21 +205,20 @@ export default function DashboardPage() {
 
         const response = await fetch('http://localhost:3001/api/ai/coaching', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
           body: JSON.stringify({
-            userData: {
-              taskHistory,
-              statedGoals: ['Be more productive', 'Complete redesign project'],
-              timeFrame: 'week'
-            }
+            message: `Here's what's on my plate this week:\n${taskHistory
+              .map(t => `- ${t.title}${t.completed ? ' (done)' : t.overdue ? ' (overdue)' : ''}`)
+              .join('\n')}`,
           })
         })
 
         if (response.ok) {
           const data = await response.json()
-          // Use the first celebration or pattern as the coach message
-          const message = data.celebrations[0] || data.patterns[0] || "You're making great progress! Keep up the momentum."
-          setCoachMessage(message)
+          setCoachMessage(data.response || "You're making great progress! Keep up the momentum.")
         }
       } catch (error) {
         console.error('Error fetching coaching:', error)

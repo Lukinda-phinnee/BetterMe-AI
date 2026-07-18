@@ -82,6 +82,15 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params
     
+    // First delete all cards associated with this goal
+    const { error: cardsError } = await supabase
+      .from('cards')
+      .delete()
+      .eq('goal_id', id)
+
+    if (cardsError) throw cardsError
+    
+    // Then delete the goal
     const { error } = await supabase
       .from('goals')
       .delete()
