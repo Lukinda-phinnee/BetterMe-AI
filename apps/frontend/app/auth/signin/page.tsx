@@ -74,57 +74,13 @@ export default function SignInPage() {
 
   return (
     <div className="auth-wrapper" data-theme={theme}>
-      {/* LEFT BRAND PANEL */}
-      <div className="brand-panel">
-        <div className="brand-panel-deco" />
-
-        <div className="brand-panel-top">
-          <div className="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M4 15c3-1 4-6 8-6s5 5 8 6" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <span className="brand-name">BetterMe</span>
-        </div>
-
-        <div className="brand-panel-mid">
-          <div className="brand-eyebrow">AI Productivity Platform</div>
-          <div className="brand-headline">Your goals deserve a smarter system</div>
-          <div className="brand-sub">Intelligent task management, habit tracking, and AI coaching — all in one place.</div>
-
-          <div className="brand-features">
-            <div className="brand-feature">
-              <div className="brand-feature-icon">
-                <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </div>
-              AI-powered daily coaching
-            </div>
-            <div className="brand-feature">
-              <div className="brand-feature-icon">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              </div>
-              Smart task prioritisation
-            </div>
-            <div className="brand-feature">
-              <div className="brand-feature-icon">
-                <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              </div>
-              Progress insights & habit streaks
-            </div>
-          </div>
-        </div>
-
-        <div className="brand-panel-bottom">
-          Trusted by 10,000+ people who achieved their goals
-        </div>
-      </div>
-
-      {/* RIGHT FORM PANEL */}
-      <div className="form-panel">
-        <div className="form-card">
-          <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
+      {/* FORM PANEL */}
+      <div className="form-panel" style={{ width: '100%' }}>
+        <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
           </button>
+        <div className="form-card">
+          
 
           <div className="tabs">
             <button className="active">Sign in</button>
@@ -133,7 +89,7 @@ export default function SignInPage() {
 
           <div className="form-view active">
             <div className="form-head">
-              <h1>Welcome back 👋</h1>
+              <h1>Welcome back</h1>
               <div className="sub">Sign in to continue to your workspace</div>
             </div>
 
@@ -201,7 +157,14 @@ export default function SignInPage() {
               </div>
 
               <button type="submit" id="signin-submit" className="btn-primary" disabled={loading}>
-                {loading ? 'Signing in…' : 'Sign in →'}
+                {loading ? (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{animation: 'spin 1s linear infinite', width: '18px', height: '18px', marginRight: '8px'}}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                    </svg>
+                    Signing in…
+                  </>
+                ) : 'Sign in →'}
               </button>
             </form>
 

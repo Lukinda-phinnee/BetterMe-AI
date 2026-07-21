@@ -40,6 +40,11 @@ interface Toast {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const addToast = useCallback((type: 'success' | 'error', options: ToastOptions) => {
     const id = Math.random().toString(36).substring(2, 9)
@@ -74,7 +79,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {typeof document !== 'undefined' &&
+      {isMounted &&
         createPortal(
           <div className="toast-container">
             {toasts.map((toast) => (

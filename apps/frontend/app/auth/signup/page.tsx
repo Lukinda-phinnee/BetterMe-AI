@@ -105,7 +105,7 @@ export default function SignUpPage() {
     return (
       <div className="auth-wrapper" data-theme={theme}>
         <div className="form-panel" style={{ width: '100%' }}>
-          <div className="form-card" style={{ textAlign: 'center' }}>
+          <div className="form-card" style={{ textAlign: 'center', paddingTop: '48px' }}>
             <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
               {theme === 'light' ? <MoonIcon /> : <SunIcon />}
             </button>
@@ -128,53 +128,8 @@ export default function SignUpPage() {
 
   return (
     <div className="auth-wrapper" data-theme={theme}>
-      {/* LEFT BRAND PANEL */}
-      <div className="brand-panel">
-        <div className="brand-panel-deco" />
-
-        <div className="brand-panel-top">
-          <div className="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M4 15c3-1 4-6 8-6s5 5 8 6" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <span className="brand-name">BetterMe</span>
-        </div>
-
-        <div className="brand-panel-mid">
-          <div className="brand-eyebrow">Join 10,000+ achievers</div>
-          <div className="brand-headline">Start your journey to a better you</div>
-          <div className="brand-sub">Set meaningful goals, build lasting habits, and get AI guidance every step of the way.</div>
-
-          <div className="brand-features">
-            <div className="brand-feature">
-              <div className="brand-feature-icon">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-              </div>
-              Personal AI coach that learns from you
-            </div>
-            <div className="brand-feature">
-              <div className="brand-feature-icon">
-                <svg viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-              </div>
-              Visual progress tracking & analytics
-            </div>
-            <div className="brand-feature">
-              <div className="brand-feature-icon">
-                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              </div>
-              Team collaboration & shared goals
-            </div>
-          </div>
-        </div>
-
-        <div className="brand-panel-bottom">
-          Free to start. No credit card required.
-        </div>
-      </div>
-
-      {/* RIGHT FORM PANEL */}
-      <div className="form-panel">
+      {/* FORM PANEL */}
+      <div className="form-panel" style={{ width: '100%' }}>
         <div className="form-card">
           <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
@@ -187,7 +142,7 @@ export default function SignUpPage() {
 
           <div className="form-view active">
             <div className="form-head">
-              <h1>Create your account ✨</h1>
+              <h1>Create your account</h1>
               <div className="sub">Free forever. Upgrade when you're ready.</div>
             </div>
 
@@ -299,7 +254,14 @@ export default function SignUpPage() {
               </div>
 
               <button type="submit" id="signup-submit" className="btn-primary" disabled={loading}>
-                {loading ? 'Creating account…' : 'Create account →'}
+                {loading ? (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{animation: 'spin 1s linear infinite', width: '18px', height: '18px', marginRight: '8px'}}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                    </svg>
+                    Creating account…
+                  </>
+                ) : 'Create account →'}
               </button>
             </form>
 

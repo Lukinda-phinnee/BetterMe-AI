@@ -228,21 +228,26 @@
   background: var(--bg);
   position: relative;
   z-index: 1;
+  position: relative;
 }
 
 .form-card {
   width: 100%;
   max-width: 460px;
-  position: relative;
-  padding-top: 52px;
+  //position: relative;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
 // ─── Theme Toggle ─────────────────────────────────────────────────────────────
 
 .theme-toggle {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 16px;
+  right: 16px;
   width: 38px;
   height: 38px;
   border: 1px solid var(--border);
@@ -261,7 +266,7 @@
     border-color: var(--primary);
     color: var(--primary);
     background: var(--primary-tint);
-    transform: rotate(12deg);
+    //transform: rotate(12deg);
   }
 
   &:active { transform: scale(0.9); }
@@ -325,6 +330,7 @@
 
 .form-head {
   margin-bottom: 28px;
+  text-align: center;
 
   h1 {
     font-size: 26px;
@@ -758,5 +764,16 @@
   .oauth-btn {
     background: var(--surface-2);
     &:hover { background: var(--surface); }
+  }
+}
+
+// ─── Spinner Animation ─────────────────────────────────────────────────────────
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }

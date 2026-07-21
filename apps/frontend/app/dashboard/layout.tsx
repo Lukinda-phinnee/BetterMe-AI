@@ -28,6 +28,7 @@ export default function DashboardLayout({
   const refreshDataFnRef = useRef<() => Promise<void>>(async () => {})
   const setRefreshDataFn = (fn: () => Promise<void>) => { refreshDataFnRef.current = fn }
   const [showColumnField, setShowColumnField] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const chatRef = useRef<HTMLDivElement>(null)
 
   // Load localStorage after mount to prevent hydration mismatch
@@ -102,6 +103,8 @@ export default function DashboardLayout({
       router.push('/dashboard/timeline')
     } else if (screen === 'goals') {
       router.push('/dashboard/goals')
+    } else if (screen === 'habits') {
+      router.push('/dashboard/habit')
     } else if (screen === 'reflection') {
       router.push('/dashboard/reflection')
     } else if (screen === 'team') {
@@ -122,7 +125,7 @@ export default function DashboardLayout({
       list: 'List',
       timeline: 'Timeline',
       goals: 'Goals',
-      habits: 'Habits',
+      habits: 'Habit Tracker',
       reflection: 'Weekly Review',
       analytics: 'Analytics',
       team: 'Team Members',
@@ -153,11 +156,14 @@ export default function DashboardLayout({
   }
 
   const handleSignOut = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('session')
-    localStorage.removeItem('user')
-    setAuthToken(null)
-    router.push('/auth/signin')
+    setIsSigningOut(true)
+    setTimeout(() => {
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('session')
+      localStorage.removeItem('user')
+      setAuthToken(null)
+      router.push('/auth/signin')
+    }, 800)
   }
 
   return (
@@ -386,13 +392,26 @@ export default function DashboardLayout({
               className="nav-item nav-item--danger"
               onClick={handleSignOut}
               title="Sign out"
+              disabled={isSigningOut}
+              style={{ opacity: isSigningOut ? 0.6 : 1, cursor: isSigningOut ? 'not-allowed' : 'pointer' }}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              Sign Out
+              {isSigningOut ? (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ animation: 'spin 1s linear infinite' }}>
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                  </svg>
+                  Signing out...
+                </>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                  Sign Out
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -476,13 +495,24 @@ export default function DashboardLayout({
                   Settings
                 </div>
                 <div className="user-profile-menu-divider"></div>
-                <div className="user-profile-menu-item" onClick={handleSignOut}>
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeWidth="1.5"/>
-                    <polyline points="16 17 21 12 16 7" strokeWidth="1.5"/>
-                    <line x1="21" y1="12" x2="9" y2="12" strokeWidth="1.5"/>
-                  </svg>
-                  Sign out
+                <div className="user-profile-menu-item" onClick={handleSignOut} style={{ opacity: isSigningOut ? 0.6 : 1, cursor: isSigningOut ? 'not-allowed' : 'pointer' }}>
+                  {isSigningOut ? (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ animation: 'spin 1s linear infinite' }}>
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                      </svg>
+                      Signing out...
+                    </>
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeWidth="1.5"/>
+                        <polyline points="16 17 21 12 16 7" strokeWidth="1.5"/>
+                        <line x1="21" y1="12" x2="9" y2="12" strokeWidth="1.5"/>
+                      </svg>
+                      Sign out
+                    </>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BetterMe — Dashboard (Widget Layout)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #E9EBE7;
+    --canvas: #F6F7F5;
+    --surface: #FFFFFF;
+    --surface-2: #EFF2EF;
+    --ink: #1B2321;
+    --ink-soft: #4B564F;
+    --muted: #8A9490;
+    --border: #E1E5E0;
+    --primary: #2F6F62;
+    --primary-dark: #234F46;
+    --primary-tint: #E6EFEC;
+    --accent: #E8A24C;
+    --accent-tint: #FBEBD3;
+    --danger: #C4573F;
+    --radius-lg: 22px;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 1px 2px rgba(27,35,33,0.04), 0 8px 24px rgba(27,35,33,0.06);
+    --font-display: "Fraunces", serif;
+    --font-body: "Inter", sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);}
+  body{-webkit-font-smoothing:antialiased;display:flex;align-items:flex-start;justify-content:center;padding:48px 20px;}
+  h1,h2,h3{font-family:var(--font-display);font-weight:500;margin:0;letter-spacing:-0.01em;}
+  p{margin:0;}
+  button{font-family:var(--font-body);cursor:pointer;}
+
+  /* ---------- Browser frame ---------- */
+  .frame{
+    width:100%;max-width:1700px;background:var(--canvas);border-radius:26px;box-shadow:0 30px 80px rgba(27,35,33,0.14);
+    overflow:hidden;
+  }
+  .frame-bar{padding:20px 24px 0;display:flex;gap:7px;}
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .dot.r{background:#E4877A;} .dot.y{background:#E8C87A;} .dot.g{background:#8FB99B;}
+
+  .layout{display:grid;grid-template-columns:320px 1fr;gap:22px;padding:20px 24px 32px;}
+
+  /* ---------- Sidebar ---------- */
+  .sb-greet{margin-bottom:16px;}
+  .sb-greet .hi{color:var(--muted);font-size:13.5px;margin-bottom:6px;}
+  .sb-greet h1{font-size:22px;line-height:1.3;}
+
+  .mode-select{
+    display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface);
+    border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:18px;
+  }
+  .mode-select svg{width:14px;height:14px;}
+
+  .sb-widgets{display:flex;flex-direction:column;gap:12px;}
+
+  .w2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  .widget{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);
+  }
+  .widget-dark{
+    background:linear-gradient(160deg,var(--primary-dark),var(--primary));color:#fff;border:none;position:relative;overflow:hidden;
+  }
+  .widget-dark::after{content:"";position:absolute;right:-30px;bottom:-30px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.10),transparent 70%);}
+
+  .w-label{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:8px;}
+  .widget-dark .w-label{color:rgba(255,255,255,0.72);}
+  .w-big{font-family:var(--font-mono);font-size:26px;font-weight:600;}
+  .w-sub{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .widget-dark .w-sub{color:rgba(255,255,255,0.7);}
+
+  .coach-widget .w-msg{font-family:var(--font-display);font-size:15px;line-height:1.4;position:relative;z-index:1;margin-top:2px;}
+
+  .player-widget{display:flex;align-items:center;gap:12px;}
+  .disc{
+    width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #3a3f3d, #14171613 60%);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;border:3px solid var(--surface-2);
+  }
+  .disc-inner{width:16px;height:16px;border-radius:50%;background:var(--accent);}
+  .player-controls{display:flex;align-items:center;gap:10px;margin-top:8px;}
+  .player-controls svg{width:16px;height:16px;color:var(--ink-soft);}
+  .player-controls .play{
+    width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;
+  }
+  .player-controls .play svg{width:11px;height:11px;color:#fff;}
+
+  .focus-widget{text-align:center;}
+  .focus-widget .w-label{text-align:left;}
+  .focus-time{font-family:var(--font-mono);font-size:34px;font-weight:600;letter-spacing:.02em;margin:6px 0 14px;position:relative;z-index:1;}
+  .focus-actions{display:flex;gap:8px;position:relative;z-index:1;}
+  .fbtn{flex:1;border:none;border-radius:999px;padding:9px 0;font-size:12.5px;font-weight:600;}
+  .fbtn.ghost{background:rgba(255,255,255,0.15);color:#fff;}
+  .fbtn.solid{background:var(--accent);color:var(--primary-dark);}
+
+  .quote-widget{
+    background:var(--accent-tint);border:none;text-align:left;
+  }
+  .quote-widget .w-quote{font-family:var(--font-display);font-size:16px;line-height:1.35;color:#7A5420;font-style:italic;}
+
+  .streak-mini{display:flex;align-items:center;gap:10px;}
+  .ring-wrap-sm{position:relative;width:44px;height:44px;flex-shrink:0;}
+  .ring-wrap-sm svg{transform:rotate(-90deg);width:44px;height:44px;}
+  .ring-track{fill:none;stroke:var(--surface-2);stroke-width:5;}
+  .ring-progress{fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;}
+  .ring-label-sm{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--ink);}
+
+  .add-widget-btn{
+    width:100%;border:none;background:var(--ink);color:#fff;border-radius:999px;padding:13px 0;font-size:13.5px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;
+  }
+  .add-widget-btn svg{width:15px;height:15px;}
+
+  /* ---------- Main ---------- */
+  .main-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .main-top h1{font-size:26px;}
+  .top-actions{display:flex;align-items:center;gap:12px;}
+  .ask-ai{
+    display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,var(--primary-tint),var(--accent-tint));
+    border:1px solid var(--border);border-radius:999px;padding:8px 15px 8px 10px;font-size:12.5px;font-weight:700;color:var(--primary-dark);
+  }
+  .ask-ai .dot-orb{width:16px;height:16px;border-radius:50%;background:conic-gradient(from 90deg, var(--primary), var(--accent), var(--primary));}
+  .icon-btn{
+    width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;
+    align-items:center;justify-content:center;color:var(--ink-soft);position:relative;
+  }
+  .icon-btn svg{width:16px;height:16px;}
+  .icon-btn .badge{position:absolute;top:6px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--danger);}
+  .user-chip{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-left:4px;}
+  .user-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));}
+
+  .row3{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+  .row-split{display:grid;grid-template-columns:2fr 1fr;gap:16px;}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow);}
+
+  .metric-title{font-size:16px;font-weight:600;font-family:var(--font-display);margin-bottom:16px;}
+  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .metric-item{display:flex;align-items:flex-start;gap:10px;}
+  .metric-ic{width:34px;height:34px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .metric-ic svg{width:16px;height:16px;color:var(--ink-soft);}
+  .metric-num{font-size:15px;font-weight:700;}
+  .metric-lbl{font-size:11.5px;color:var(--muted);}
+
+  .cycle-ring-big{position:relative;width:110px;height:110px;margin-left:auto;}
+  .cycle-ring-big svg{transform:rotate(-90deg);width:110px;height:110px;}
+  .cr-track{fill:none;stroke:var(--surface-2);stroke-width:9;}
+  .cr-p1{fill:none;stroke:var(--primary);stroke-width:9;stroke-linecap:round;}
+  .cr-p2{fill:none;stroke:var(--accent);stroke-width:9;stroke-linecap:round;}
+  .cr-p3{fill:none;stroke:#8FB99B;stroke-width:9;stroke-linecap:round;}
+
+  .stat-card .stat-head{display:flex;align-items:center;gap:8px;margin-bottom:14px;color:var(--ink-soft);font-size:13px;font-weight:600;}
+  .stat-card .stat-head svg{width:15px;height:15px;}
+  .stat-num-row{display:flex;align-items:baseline;gap:6px;}
+  .stat-num-row .n{font-family:var(--font-mono);font-size:30px;font-weight:700;}
+  .stat-num-row .u{font-size:13px;color:var(--muted);}
+  .mini-spark{height:36px;margin:12px 0 8px;display:flex;align-items:flex-end;gap:3px;}
+  .mini-spark div{flex:1;background:var(--primary-tint);border-radius:2px;}
+  .stat-tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#4A7A3A;background:#E9F2E4;padding:4px 9px;border-radius:999px;}
+  .stat-tag.warn{color:#9A6420;background:var(--accent-tint);}
+
+  /* today panel */
+  .today-card{padding:22px;}
+  .today-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .today-head h2{font-size:17px;}
+  .today-head .btn-add{
+    display:flex;align-items:center;gap:6px;background:var(--ink);color:#fff;border:none;border-radius:999px;
+    padding:8px 14px;font-size:12.5px;font-weight:600;
+  }
+  .cal-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:18px;align-items:center;}
+  .cal-nav{width:26px;height:26px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
+  .cal-nav svg{width:12px;height:12px;}
+  .cal-day{text-align:center;}
+  .cal-day .dname{font-size:10.5px;color:var(--muted);margin-bottom:6px;}
+  .cal-day .dnum{font-size:13px;font-weight:600;padding:6px 0;border-radius:8px;}
+  .cal-day.active .dnum{background:var(--primary);color:#fff;}
+
+  .today-task{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+  .today-task:last-child{border-bottom:none;}
+  .tt-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .tt-ic svg{width:16px;height:16px;}
+  .tt-title{font-size:13.5px;font-weight:600;}
+  .tt-time{font-size:11.5px;color:var(--muted);margin-top:1px;}
+  .tt-done{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--primary);}
+  .tt-done svg{width:13px;height:13px;}
+  .today-task.skipped .tt-title{text-decoration:line-through;color:var(--muted);}
+
+  /* streak row */
+  .streak-card{padding:22px;}
+  .streak-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .streak-head h2{font-size:17px;}
+  .period-select{border:1px solid var(--border);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--ink-soft);background:var(--surface);display:flex;align-items:center;gap:6px;}
+  .period-toggle{display:flex;background:var(--surface-2);border-radius:999px;padding:3px;}
+  .period-toggle button{border:none;background:none;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;color:var(--muted);}
+  .period-toggle button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);}
+
+  .streak-grid{display:grid;grid-template-columns:repeat(17,1fr);gap:6px;}
+  .sday{display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .sday .box{width:100%;aspect-ratio:1;border-radius:9px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;}
+  .sday .box svg{width:13px;height:13px;}
+  .sday.done .box{background:#E1EEDF;color:#4A7A3A;}
+  .sday.warn .box{background:#FBE6E0;color:var(--danger);}
+  .sday.partial .box{background:var(--accent-tint);color:#9A6420;}
+  .sday.today .box{background:var(--primary);color:#fff;box-shadow:0 0 0 3px var(--primary-tint);}
+  .sday .dnum{font-size:10.5px;color:var(--muted);}
+
+  /* favorite habit + promo */
+  .fav-card{padding:22px;}
+  .fav-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+  .fav-head h2{font-size:17px;}
+  .fav-chart{display:flex;align-items:flex-end;gap:14px;height:120px;position:relative;}
+  .fav-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .fav-bar{width:100%;background:var(--surface-2);border-radius:8px 8px 4px 4px;position:relative;}
+  .fav-bar.hi{background:var(--primary);}
+  .fav-bar .ic{position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:26px;height:26px;border-radius:8px;background:var(--surface);border:2px solid var(--primary);display:flex;align-items:center;justify-content:center;}
+  .fav-bar .ic svg{width:13px;height:13px;color:var(--primary);}
+  .fav-lbl{font-size:11px;color:var(--muted);text-align:center;}
+  .fav-callout{
+    position:absolute;top:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
+    padding:12px 16px;box-shadow:var(--shadow);
+  }
+  .fav-callout .fc-lbl{font-size:11px;color:var(--muted);}
+  .fav-callout .fc-num{font-family:var(--font-mono);font-size:19px;font-weight:700;margin:2px 0;}
+  .fav-callout .fc-diff{font-size:11px;font-weight:600;color:#4A7A3A;}
+
+  .promo-card{
+    background:linear-gradient(160deg,var(--primary-dark),var(--primary) 70%);color:#fff;border:none;
+    display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;padding:24px;
+  }
+  .promo-card::before{content:"";position:absolute;left:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(232,162,76,0.22),transparent 70%);}
+  .promo-tag{font-family:var(--font-display);font-style:italic;font-size:13px;color:rgba(255,255,255,0.65);position:relative;z-index:1;}
+  .promo-title{font-family:var(--font-display);font-size:24px;line-height:1.3;margin-top:4px;position:relative;z-index:1;max-width:260px;}
+  .promo-btn{
+    align-self:flex-start;background:var(--surface);color:var(--ink);border:none;border-radius:999px;
+    padding:10px 18px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;margin-top:16px;position:relative;z-index:1;
+  }
+  .promo-btn svg{width:13px;height:13px;}
+  .promo-input{
+    margin-top:20px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:var(--radius-sm);
+    padding:12px 14px;font-size:13px;color:rgba(255,255,255,0.85);position:relative;z-index:1;
+  }
+
+  @media (max-width:1200px){
+    .layout{grid-template-columns:1fr;}
+    .row3{grid-template-columns:1fr;}
+    .row-split{grid-template-columns:1fr;}
+    .streak-grid{grid-template-columns:repeat(9,1fr);}
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <div class="frame-bar">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+  </div>
+
+  <div class="layout">
+
+    <!-- ================= SIDEBAR ================= -->
+    <div class="sidebar-col">
+      <div class="sb-greet">
+        <div class="hi">Hi Alex,</div>
+        <h1>Let's build<br>momentum today</h1>
+      </div>
+
+      <div class="mode-select">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        Work mode
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+
+      <div class="sb-widgets">
+
+        <!-- coach tip widget -->
+        <div class="widget widget-dark coach-widget">
+          <div class="w-label">Coach</div>
+          <div class="w-msg">Evening wind-down slipped 2 nights this week. Want to shrink it to just "phone in another room" for now?</div>
+        </div>
+
+        <!-- goal progress + focus widget row -->
+        <div class="w2">
+          <div class="widget">
+            <div class="w-label">Habit goal</div>
+            <div class="w-big">86%</div>
+            <div class="w-sub">Consistency this month</div>
+          </div>
+          <div class="widget">
+            <div class="w-label">This week</div>
+            <div class="w-big">24<span style="font-size:15px;color:var(--muted);">/28</span></div>
+            <div class="w-sub">Habit check-ins</div>
+          </div>
+        </div>
+
+        <!-- deep work music, kept as-is -->
+        <div class="widget player-widget">
+          <div class="disc"><div class="disc-inner"></div></div>
+          <div style="flex:1;">
+            <div class="w-label" style="margin-bottom:2px;">Deep work music</div>
+            <div class="w-sub" style="margin-top:0;">Lo-fi focus mix</div>
+            <div class="player-controls">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18V6h2v12H6zm3.5-6L18 6v12l-8.5-6z"/></svg>
+              <div class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+              <svg viewBox="0 0 24 24" fill="currentColor" style="transform:scaleX(-1)"><path d="M6 18V6h2v12H6zm3.5-6L18 6v12l-8.5-6z"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- focus session timer, kept as-is -->
+        <div class="widget widget-dark focus-widget">
+          <div class="w-label">Focus session</div>
+          <div class="focus-time">00 : 20 : 00</div>
+          <div class="focus-actions">
+            <button class="fbtn ghost">Cancel</button>
+            <button class="fbtn solid">Start</button>
+          </div>
+        </div>
+
+        <!-- streak mini + quote -->
+        <div class="w2">
+          <div class="widget">
+            <div class="w-label">Streak</div>
+            <div class="streak-mini">
+              <div class="ring-wrap-sm">
+                <svg viewBox="0 0 44 44"><circle class="ring-track" cx="22" cy="22" r="18"/><circle class="ring-progress" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="16"/></svg>
+                <div class="ring-label-sm">12</div>
+              </div>
+              <div class="w-sub" style="margin-top:0;">days running</div>
+            </div>
+          </div>
+          <div class="widget quote-widget">
+            <div class="w-quote">"Small steps<br>still count."</div>
+          </div>
+        </div>
+
+      </div>
+
+      <button class="add-widget-btn" style="margin-top:12px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        Add New Widget
+      </button>
+    </div>
+
+    <!-- ================= MAIN ================= -->
+    <div class="main-col">
+      <div class="main-top">
+        <h1>Habit Tracker</h1>
+        <div class="top-actions">
+          <div class="ask-ai"><span class="dot-orb"></span> Ask Coach</div>
+          <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+          <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><div class="badge"></div></div>
+          <div class="user-chip"><div class="user-avatar"></div> Alex R.</div>
+        </div>
+      </div>
+
+      <!-- row 1: momentum ring / tasks-completed / energy -->
+      <div class="row3">
+        <div class="card">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+            <div>
+              <div class="metric-title">This week's habits</div>
+              <div class="metric-grid">
+                <div class="metric-item">
+                  <div class="metric-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+                  <div><div class="metric-num">24 of 28</div><div class="metric-lbl">Habit check-ins done</div></div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></div>
+                  <div><div class="metric-num">12 days</div><div class="metric-lbl">Longest active streak</div></div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+                  <div><div class="metric-num">86%</div><div class="metric-lbl">Consistency rate</div></div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 4v3M16 4v3"/></svg></div>
+                  <div><div class="metric-num">5</div><div class="metric-lbl">Active habits</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="cycle-ring-big">
+              <svg viewBox="0 0 110 110">
+                <circle class="cr-track" cx="55" cy="55" r="46"/>
+                <circle class="cr-p1" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="200"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="card stat-card">
+          <div class="stat-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg> Consistency score</div>
+          <div class="stat-num-row"><span class="n">86</span><span class="u">/100</span></div>
+          <div class="mini-spark">
+            <div style="height:40%;"></div><div style="height:55%;"></div><div style="height:35%;"></div>
+            <div style="height:70%;"></div><div style="height:60%;"></div><div style="height:90%;background:var(--primary);"></div><div style="height:82%;background:var(--primary);"></div>
+          </div>
+          <span class="stat-tag">Up since anchoring to coffee</span>
+        </div>
+
+        <div class="card stat-card">
+          <div class="stat-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg> Habit at risk</div>
+          <div class="stat-num-row"><span class="n">2</span><span class="u">days missed</span></div>
+          <div class="mini-spark">
+            <div style="height:60%;background:var(--accent-tint);"></div><div style="height:50%;background:var(--accent-tint);"></div>
+            <div style="height:75%;background:var(--accent-tint);"></div><div style="height:20%;background:var(--accent);"></div>
+            <div style="height:15%;background:var(--accent);"></div><div style="height:70%;background:var(--accent-tint);"></div><div style="height:80%;background:var(--accent-tint);"></div>
+          </div>
+          <span class="stat-tag warn">Evening wind-down slipping</span>
+        </div>
+      </div>
+
+      <!-- row 2: today's tasks + calendar -->
+      <div class="row-split" style="margin-bottom:16px;">
+        <div class="card today-card">
+          <div class="today-head">
+            <h2>Today's habits</h2>
+            <button class="btn-add"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add habit</button>
+          </div>
+
+          <div class="today-task">
+            <div class="tt-ic" style="background:#E9F2E4;color:#4A7A3A;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 15c3-1 4-6 8-6s5 5 8 6"/></svg></div>
+            <div><div class="tt-title">Morning pages + planning review</div><div class="tt-time">07:00 – 07:20 AM · daily</div></div>
+            <div class="tt-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> Done</div>
+          </div>
+          <div class="today-task">
+            <div class="tt-ic" style="background:var(--primary-tint);color:var(--primary-dark);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v6M12 16v6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/></svg></div>
+            <div><div class="tt-title">Drink water — 6 glasses</div><div class="tt-time">Throughout the day · daily</div></div>
+            <div class="tt-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> Done</div>
+          </div>
+          <div class="today-task">
+            <div class="tt-ic" style="background:var(--accent-tint);color:#9A6420;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+            <div><div class="tt-title">20-min focused walk</div><div class="tt-time">01:00 – 01:20 PM · weekdays</div></div>
+            <div class="tt-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> Done</div>
+          </div>
+          <div class="today-task skipped">
+            <div class="tt-ic" style="background:var(--surface-2);color:var(--muted);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
+            <div><div class="tt-title">Evening wind-down (screens off by 9:30)</div><div class="tt-time">09:30 – 10:00 PM · daily</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="today-head">
+            <h2 style="font-size:16px;">Januari, 2026</h2>
+          </div>
+          <div class="cal-strip">
+            <div class="cal-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 6l-6 6 6 6"/></svg></div>
+            <div class="cal-day"><div class="dname">Mon</div><div class="dnum">19</div></div>
+            <div class="cal-day"><div class="dname">Tue</div><div class="dnum">20</div></div>
+            <div class="cal-day active"><div class="dname">Wed</div><div class="dnum">21</div></div>
+            <div class="cal-day"><div class="dname">Thu</div><div class="dnum">22</div></div>
+            <div class="cal-day"><div class="dname">Fri</div><div class="dnum">23</div></div>
+            <div class="cal-nav" style="margin-left:auto;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></div>
+          </div>
+          <p style="font-size:12.5px;color:var(--muted);line-height:1.6;">3 of 4 habits checked in so far — evening wind-down is still open. Coach will check in gently around 9pm if it's still untouched.</p>
+        </div>
+      </div>
+
+      <!-- row 3: habit streak calendar -->
+      <div class="card streak-card" style="margin-bottom:16px;">
+        <div class="streak-head">
+          <h2>Habit streak</h2>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <div class="period-select">This month <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg></div>
+            <div class="period-toggle"><button class="active">Monthly</button><button>Yearly</button></div>
+          </div>
+        </div>
+        <div class="streak-grid">
+          <div class="sday done"><div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="dnum">12</div></div>
+          <div class="sday done"><div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="dnum">13</div></div>
+          <div class="sday partial"><div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="8"/></svg></div><div class="dnum">14</div></div>
+          <div class="sday warn"><div class="box">!</div><div class="dnum">15</div></div>
+          <div class="sday done"><div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="dnum">16</div></div>
+          <div class="sday warn"><div class="box">!</div><div class="dnum">17</div></div>
+          <div class="sday done"><div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="dnum">18</div></div>
+          <div class="sday done"><div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="dnum">19</div></div>
+          <div class="sday done"><div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="dnum">20</div></div>
+          <div class="sday done"><div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="dnum">21</div></div>
+          <div class="sday today"><div class="box">●</div><div class="dnum">22</div></div>
+          <div class="sday"><div class="box"></div><div class="dnum">23</div></div>
+          <div class="sday"><div class="box"></div><div class="dnum">24</div></div>
+          <div class="sday"><div class="box"></div><div class="dnum">25</div></div>
+          <div class="sday"><div class="box"></div><div class="dnum">26</div></div>
+          <div class="sday"><div class="box"></div><div class="dnum">27</div></div>
+          <div class="sday"><div class="box"></div><div class="dnum">28</div></div>
+        </div>
+      </div>
+
+      <!-- row 4: favorite habit + promo -->
+      <div class="row-split">
+        <div class="card fav-card" style="position:relative;">
+          <div class="fav-head"><h2>Favorite habit</h2></div>
+          <div class="fav-chart">
+            <div class="fav-callout">
+              <div class="fc-lbl">Morning review</div>
+              <div class="fc-num">18 min</div>
+              <div class="fc-diff">▲ 6% vs last month</div>
+            </div>
+            <div class="fav-bar-wrap"><div class="fav-bar" style="height:45%;"></div><div class="fav-lbl">Walk</div></div>
+            <div class="fav-bar-wrap"><div class="fav-bar" style="height:60%;"></div><div class="fav-lbl">Journaling</div></div>
+            <div class="fav-bar-wrap">
+              <div class="fav-bar hi" style="height:92%;"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15c3-1 4-6 8-6s5 5 8 6"/></svg></div></div>
+              <div class="fav-lbl">Morning review</div>
+            </div>
+            <div class="fav-bar-wrap"><div class="fav-bar" style="height:38%;"></div><div class="fav-lbl">Deep work</div></div>
+            <div class="fav-bar-wrap"><div class="fav-bar" style="height:52%;"></div><div class="fav-lbl">Weekly reflect</div></div>
+            <div class="fav-bar-wrap"><div class="fav-bar" style="height:30%;"></div><div class="fav-lbl">Inbox zero</div></div>
+          </div>
+        </div>
+
+        <div class="card promo-card">
+          <div>
+            <div class="promo-tag">Let's try a new feature</div>
+            <div class="promo-title">Habit stacking</div>
+          </div>
+          <button class="promo-btn">Try now <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
+          <div class="promo-input">What's a habit you already do every day?</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BetterMe — Add Habit / Manage Habit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F7F5; --surface:#FFFFFF; --surface-2:#EFF2EF; --ink:#1B2321; --ink-soft:#4B564F; --muted:#8A9490;
+    --border:#E1E5E0; --primary:#2F6F62; --primary-dark:#234F46; --primary-tint:#E6EFEC;
+    --accent:#E8A24C; --accent-tint:#FBEBD3; --danger:#C4573F; --danger-tint:#FBE6E0;
+    --radius-lg:22px; --radius:14px; --radius-sm:10px;
+    --shadow:0 1px 2px rgba(27,35,33,0.04), 0 8px 24px rgba(27,35,33,0.06);
+    --shadow-modal:0 30px 80px rgba(27,35,33,0.22);
+    --font-display:"Fraunces",serif; --font-body:"Inter",sans-serif; --font-mono:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);}
+  body{-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:var(--font-display);font-weight:500;margin:0;letter-spacing:-0.01em;}
+  p{margin:0;}
+  button{font-family:var(--font-body);cursor:pointer;}
+  input,textarea{font-family:var(--font-body);}
+
+  /* ---------- backdrop page (context) ---------- */
+  .page{max-width:1000px;margin:0 auto;padding:56px 24px 100px;}
+  .page-head{margin-bottom:28px;}
+  .page-head h1{font-size:26px;margin-bottom:6px;}
+  .page-head .sub{color:var(--muted);font-size:14px;}
+
+  .demo-actions{display:flex;gap:12px;margin-bottom:32px;}
+  .btn{border:none;border-radius:999px;padding:11px 20px;font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:8px;}
+  .btn svg{width:15px;height:15px;}
+  .btn-primary{background:var(--primary);color:#fff;}
+  .btn-primary:hover{background:var(--primary-dark);}
+  .btn-outline{background:var(--surface);border:1px solid var(--border);color:var(--ink-soft);}
+  .btn-outline:hover{border-color:var(--primary);color:var(--primary-dark);}
+
+  .habit-list-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:8px;box-shadow:var(--shadow);}
+  .hl-row{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:var(--radius-sm);cursor:pointer;transition:.15s;}
+  .hl-row:hover{background:var(--surface-2);}
+  .hl-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .hl-ic svg{width:18px;height:18px;}
+  .hl-title{font-size:14px;font-weight:600;}
+  .hl-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+  .hl-streak{margin-left:auto;display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--accent);}
+  .hl-streak svg{width:14px;height:14px;}
+  .hl-chevron{color:var(--muted);}
+  .hl-chevron svg{width:16px;height:16px;}
+
+  /* ---------- modal shell ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(27,35,33,0.42);backdrop-filter:blur(2px);
+    display:none;align-items:flex-start;justify-content:center;z-index:100;padding:5vh 20px;overflow-y:auto;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--surface);border-radius:24px;box-shadow:var(--shadow-modal);width:100%;
+    display:flex;flex-direction:column;max-height:90vh;
+  }
+  .modal.narrow{max-width:480px;}
+  .modal.wide{max-width:720px;}
+
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:22px 26px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .modal-title{font-size:19px;}
+  .modal-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--surface-2);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;}
+  .modal-close svg{width:14px;height:14px;}
+  .modal-body{padding:24px 26px;overflow-y:auto;}
+  .modal-foot{padding:18px 26px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;}
+
+  /* ---------- form elements ---------- */
+  .field{margin-bottom:18px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:7px;}
+  .field .hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5;}
+  .input, .textarea, .select{
+    width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px;
+    font-size:14px;outline:none;background:var(--surface);color:var(--ink);
+  }
+  .input:focus,.textarea:focus,.select:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+  .textarea{min-height:64px;resize:vertical;}
+
+  .icon-picker{display:flex;gap:8px;flex-wrap:wrap;}
+  .icon-opt{
+    width:42px;height:42px;border-radius:12px;border:1.5px solid var(--border);display:flex;align-items:center;
+    justify-content:center;background:var(--surface);color:var(--ink-soft);
+  }
+  .icon-opt svg{width:18px;height:18px;}
+  .icon-opt.active{border-color:var(--primary);background:var(--primary-tint);color:var(--primary-dark);}
+
+  .color-picker{display:flex;gap:8px;}
+  .color-opt{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;position:relative;}
+  .color-opt.active::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--ink);}
+
+  .seg{display:flex;background:var(--surface-2);border-radius:999px;padding:3px;}
+  .seg button{flex:1;border:none;background:none;padding:9px 0;border-radius:999px;font-size:13px;font-weight:600;color:var(--muted);}
+  .seg button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);}
+
+  .day-picker{display:flex;gap:6px;}
+  .day-opt{
+    width:36px;height:36px;border-radius:10px;border:1.5px solid var(--border);display:flex;align-items:center;
+    justify-content:center;font-size:11.5px;font-weight:700;color:var(--ink-soft);background:var(--surface);
+  }
+  .day-opt.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+
+  .stack-box{
+    background:var(--primary-tint);border:1px dashed var(--primary);border-radius:var(--radius-sm);padding:14px;
+  }
+  .stack-sentence{font-size:13.5px;line-height:1.7;color:var(--primary-dark);}
+  .stack-sentence .fill{
+    display:inline-block;border-bottom:1.5px solid var(--primary);padding:0 4px;font-weight:600;color:var(--ink);
+    min-width:90px;
+  }
+
+  .tag-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .tag-opt{padding:7px 13px;border-radius:999px;border:1.5px solid var(--border);font-size:12.5px;font-weight:600;color:var(--ink-soft);background:var(--surface);}
+  .tag-opt.active.health{background:#E9F2E4;border-color:#4A7A3A;color:#3A6B2C;}
+  .tag-opt.active.work{background:var(--primary-tint);border-color:var(--primary);color:var(--primary-dark);}
+  .tag-opt.active.home{background:var(--accent-tint);border-color:var(--accent);color:#9A6420;}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+  .switch-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);}
+  .switch-row:first-of-type{border-top:none;}
+  .switch-label{font-size:13.5px;font-weight:600;}
+  .switch-sub{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .toggle{width:40px;height:23px;border-radius:999px;background:var(--surface-2);position:relative;flex-shrink:0;cursor:pointer;}
+  .toggle.on{background:var(--primary);}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);}
+  .toggle.on::after{left:19px;}
+
+  /* ---------- Habit detail / manage modal ---------- */
+  .hd-header{display:flex;align-items:center;gap:16px;}
+  .hd-ic-big{width:56px;height:56px;border-radius:16px;background:#E9F2E4;color:#4A7A3A;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .hd-ic-big svg{width:26px;height:26px;}
+  .hd-name{font-size:20px;}
+  .hd-meta{font-size:12.5px;color:var(--muted);margin-top:3px;}
+
+  .hd-tabs{display:flex;gap:4px;background:var(--surface-2);border-radius:999px;padding:4px;margin:20px 0 20px;}
+  .hd-tabs button{flex:1;border:none;background:none;padding:9px 0;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--muted);}
+  .hd-tabs button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);}
+
+  .hd-view{display:none;}
+  .hd-view.active{display:block;}
+
+  .hd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+  .hd-stat{background:var(--surface-2);border-radius:var(--radius-sm);padding:14px;}
+  .hd-stat .n{font-family:var(--font-mono);font-size:19px;font-weight:700;}
+  .hd-stat .l{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  .hd-ring-row{display:flex;align-items:center;gap:20px;background:var(--surface-2);border-radius:var(--radius-sm);padding:18px;margin-bottom:22px;}
+  .ring-wrap{position:relative;width:78px;height:78px;flex-shrink:0;}
+  .ring-wrap svg{transform:rotate(-90deg);width:78px;height:78px;}
+  .ring-track{fill:none;stroke:var(--surface);stroke-width:7;}
+  .ring-progress{fill:none;stroke:var(--accent);stroke-width:7;stroke-linecap:round;}
+  .ring-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;font-weight:700;}
+  .hd-ring-copy .t{font-size:14px;font-weight:600;}
+  .hd-ring-copy .s{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  .hd-cal-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin-bottom:12px;}
+  .hd-cal-grid{display:grid;grid-template-columns:repeat(14,1fr);gap:5px;margin-bottom:24px;}
+  .hd-day{aspect-ratio:1;border-radius:6px;background:var(--surface-2);}
+  .hd-day.done{background:var(--primary);}
+  .hd-day.partial{background:var(--accent-tint);}
+  .hd-day.today{box-shadow:0 0 0 2px var(--ink);}
+
+  .coach-insight{
+    background:linear-gradient(155deg,var(--primary-dark),var(--primary));color:#fff;border-radius:var(--radius);
+    padding:16px 18px;display:flex;gap:12px;align-items:flex-start;
+  }
+  .coach-insight svg{width:18px;height:18px;flex-shrink:0;margin-top:2px;}
+  .coach-insight p{font-size:13px;line-height:1.55;}
+
+  .danger-zone{margin-top:8px;padding-top:18px;border-top:1px solid var(--border);}
+  .danger-row{display:flex;align-items:center;justify-content:space-between;}
+  .danger-row .t{font-size:13.5px;font-weight:600;}
+  .danger-row .s{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .btn-danger-outline{background:var(--danger-tint);color:var(--danger);border:1px solid #F0C4B8;border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:700;}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="page-head">
+    <h1>Habits</h1>
+    <div class="sub">Manage your routines — tap a habit to view details, or add a new one.</div>
+  </div>
+
+  <div class="demo-actions">
+    <button class="btn btn-primary" onclick="openModal('addHabit')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      Add habit
+    </button>
+    <button class="btn btn-outline" onclick="openModal('manageHabit')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
+      View habit detail (demo)
+    </button>
+  </div>
+
+  <div class="habit-list-card">
+    <div class="hl-row" onclick="openModal('manageHabit')">
+      <div class="hl-ic" style="background:#E9F2E4;color:#4A7A3A;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 15c3-1 4-6 8-6s5 5 8 6"/></svg></div>
+      <div>
+        <div class="hl-title">Morning pages + planning review</div>
+        <div class="hl-meta">Daily · after coffee · 7:00 AM</div>
+      </div>
+      <div class="hl-streak"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg> 12</div>
+      <div class="hl-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6-6"/></svg></div>
+    </div>
+    <div class="hl-row">
+      <div class="hl-ic" style="background:var(--primary-tint);color:var(--primary-dark);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v6M12 16v6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/></svg></div>
+      <div>
+        <div class="hl-title">Drink water — 6 glasses</div>
+        <div class="hl-meta">Daily · throughout the day</div>
+      </div>
+      <div class="hl-streak"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg> 6</div>
+      <div class="hl-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6-6"/></svg></div>
+    </div>
+    <div class="hl-row">
+      <div class="hl-ic" style="background:var(--accent-tint);color:#9A6420;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+      <div>
+        <div class="hl-title">20-min focused walk</div>
+        <div class="hl-meta">Weekdays · after lunch · 1:00 PM</div>
+      </div>
+      <div class="hl-streak"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg> 4</div>
+      <div class="hl-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6-6"/></svg></div>
+    </div>
+    <div class="hl-row">
+      <div class="hl-ic" style="background:var(--surface-2);color:var(--muted);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v6l4 2"/><circle cx="12" cy="12" r="9"/></svg></div>
+      <div>
+        <div class="hl-title">Evening wind-down (screens off 9:30)</div>
+        <div class="hl-meta">Daily · 9:30 PM</div>
+      </div>
+      <div class="hl-streak" style="color:var(--danger);"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg> 0</div>
+      <div class="hl-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6-6"/></svg></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADD HABIT MODAL ============ -->
+<div class="overlay" id="overlay-addHabit">
+  <div class="modal narrow">
+    <div class="modal-head">
+      <div class="modal-title">New habit</div>
+      <button class="modal-close" onclick="closeModal('addHabit')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="field">
+        <label>Name</label>
+        <input class="input" placeholder="e.g. Read before bed" value="Evening wind-down">
+      </div>
+
+      <div class="field">
+        <label>Icon & color</label>
+        <div class="icon-picker" style="margin-bottom:10px;">
+          <div class="icon-opt active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v6l4 2"/><circle cx="12" cy="12" r="9"/></svg></div>
+          <div class="icon-opt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 15c3-1 4-6 8-6s5 5 8 6"/></svg></div>
+          <div class="icon-opt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
+          <div class="icon-opt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+          <div class="icon-opt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v6M12 16v6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/></svg></div>
+          <div class="icon-opt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></div>
+        </div>
+        <div class="color-picker">
+          <div class="color-opt active" style="background:var(--primary);"></div>
+          <div class="color-opt" style="background:var(--accent);"></div>
+          <div class="color-opt" style="background:#4A7A3A;"></div>
+          <div class="color-opt" style="background:#B57A3D;"></div>
+          <div class="color-opt" style="background:#7A8C86;"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Category</label>
+        <div class="tag-row">
+          <div class="tag-opt active health">Health</div>
+          <div class="tag-opt">Work</div>
+          <div class="tag-opt">Home</div>
+          <div class="tag-opt">Mind</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Frequency</label>
+        <div class="seg" style="margin-bottom:10px;">
+          <button class="active">Daily</button>
+          <button>Specific days</button>
+          <button>X per week</button>
+        </div>
+        <div class="day-picker">
+          <div class="day-opt active">M</div><div class="day-opt active">T</div><div class="day-opt active">W</div>
+          <div class="day-opt active">T</div><div class="day-opt active">F</div><div class="day-opt active">S</div><div class="day-opt active">S</div>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Reminder time</label>
+          <input class="input" type="time" value="21:30">
+        </div>
+        <div class="field">
+          <label>Reminder tone</label>
+          <select class="select">
+            <option>Gentle nudge</option>
+            <option>Direct</option>
+            <option>Silent (no reminder)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Anchor it to something you already do <span style="color:var(--muted);font-weight:400;">— habit stacking</span></label>
+        <div class="stack-box">
+          <div class="stack-sentence">
+            After I <span class="fill">brush my teeth</span>, I will <span class="fill">put my phone in another room</span>.
+          </div>
+        </div>
+        <div class="hint">If-then plans like this are far more likely to stick than a reminder at a random time.</div>
+      </div>
+
+      <div class="switch-row">
+        <div>
+          <div class="switch-label">Link to a goal</div>
+          <div class="switch-sub">Connect this habit to a WOOP goal you're working on</div>
+        </div>
+        <div class="toggle"></div>
+      </div>
+      <div class="switch-row">
+        <div>
+          <div class="switch-label">Visible to team</div>
+          <div class="switch-sub">Only relevant in Team mode — keeps this private by default</div>
+        </div>
+        <div class="toggle"></div>
+      </div>
+
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('addHabit')">Cancel</button>
+      <button class="btn btn-primary">Create habit</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MANAGE / VIEW HABIT MODAL ============ -->
+<div class="overlay" id="overlay-manageHabit">
+  <div class="modal wide">
+    <div class="modal-head">
+      <div class="hd-header">
+        <div class="hd-ic-big"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 15c3-1 4-6 8-6s5 5 8 6"/></svg></div>
+        <div>
+          <div class="hd-name">Morning pages + planning review</div>
+          <div class="hd-meta">Daily · anchored after coffee · 7:00 AM</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('manageHabit')">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="hd-tabs">
+        <button class="active" onclick="setHdTab('overview', this)">Overview</button>
+        <button onclick="setHdTab('edit', this)">Edit settings</button>
+      </div>
+
+      <!-- OVERVIEW -->
+      <div class="hd-view active" id="hd-overview">
+        <div class="hd-stats">
+          <div class="hd-stat"><div class="n">12</div><div class="l">Current streak</div></div>
+          <div class="hd-stat"><div class="n">21</div><div class="l">Longest streak</div></div>
+          <div class="hd-stat"><div class="n">91%</div><div class="l">30-day consistency</div></div>
+          <div class="hd-stat"><div class="n">64</div><div class="l">Total check-ins</div></div>
+        </div>
+
+        <div class="hd-ring-row">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 78 78"><circle class="ring-track" cx="39" cy="39" r="32"/><circle class="ring-progress" cx="39" cy="39" r="32" stroke-dasharray="201" stroke-dashoffset="18"/></svg>
+            <div class="ring-label">91%</div>
+          </div>
+          <div class="hd-ring-copy">
+            <div class="t">Trending up this month</div>
+            <div class="s">Best day of the week: <strong>Tuesday</strong> · Most-missed day: <strong>Sunday</strong></div>
+          </div>
+        </div>
+
+        <div class="hd-cal-title">Last 28 days</div>
+        <div class="hd-cal-grid">
+          <div class="hd-day done"></div><div class="hd-day done"></div><div class="hd-day done"></div><div class="hd-day partial"></div>
+          <div class="hd-day done"></div><div class="hd-day"></div><div class="hd-day done"></div>
+          <div class="hd-day done"></div><div class="hd-day done"></div><div class="hd-day done"></div><div class="hd-day done"></div>
+          <div class="hd-day done"></div><div class="hd-day"></div><div class="hd-day done"></div>
+          <div class="hd-day done"></div><div class="hd-day done"></div><div class="hd-day done"></div><div class="hd-day done"></div>
+          <div class="hd-day done"></div><div class="hd-day"></div><div class="hd-day done"></div>
+          <div class="hd-day done"></div><div class="hd-day done"></div><div class="hd-day done"></div><div class="hd-day done"></div>
+          <div class="hd-day done"></div><div class="hd-day done"></div><div class="hd-day done today"></div>
+        </div>
+
+        <div class="coach-insight">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a7 7 0 00-7 7c0 2 1 3.5 2 4.5V17a2 2 0 002 2h6a2 2 0 002-2v-2.5c1-1 2-2.5 2-4.5a7 7 0 00-7-7z"/></svg>
+          <p>This habit almost always slips on Sundays — probably the coffee anchor doesn't happen the same way on weekends. Want to set a separate weekend anchor instead of skipping it?</p>
+        </div>
+      </div>
+
+      <!-- EDIT SETTINGS -->
+      <div class="hd-view" id="hd-edit">
+        <div class="field">
+          <label>Name</label>
+          <input class="input" value="Morning pages + planning review">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Reminder time</label>
+            <input class="input" type="time" value="07:00">
+          </div>
+          <div class="field">
+            <label>Reminder tone</label>
+            <select class="select">
+              <option>Gentle nudge</option>
+              <option selected>Direct</option>
+              <option>Silent (no reminder)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Anchor</label>
+          <div class="stack-box">
+            <div class="stack-sentence">After I <span class="fill">make coffee</span>, I will <span class="fill">write and plan</span>.</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Frequency</label>
+          <div class="day-picker">
+            <div class="day-opt active">M</div><div class="day-opt active">T</div><div class="day-opt active">W</div>
+            <div class="day-opt active">T</div><div class="day-opt active">F</div><div class="day-opt active">S</div><div class="day-opt">S</div>
+          </div>
+        </div>
+
+        <div class="danger-zone">
+          <div class="danger-row">
+            <div><div class="t">Pause this habit</div><div class="s">Stop tracking without losing your history</div></div>
+            <button class="btn-danger-outline">Pause</button>
+          </div>
+          <div class="danger-row" style="margin-top:14px;">
+            <div><div class="t">Delete habit</div><div class="s">Removes this habit and its history permanently</div></div>
+            <button class="btn-danger-outline">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('manageHabit')">Close</button>
+      <button class="btn btn-primary">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openModal(id){ document.getElementById('overlay-'+id).classList.add('open'); }
+function closeModal(id){ document.getElementById('overlay-'+id).classList.remove('open'); }
+function setHdTab(view, el){
+  document.querySelectorAll('.hd-tabs button').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.hd-view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('hd-'+view).classList.add('active');
+}
+document.querySelectorAll('.icon-opt').forEach(o=>o.addEventListener('click',()=>{
+  document.querySelectorAll('.icon-opt').forEach(x=>x.classList.remove('active')); o.classList.add('active');
+}));
+document.querySelectorAll('.color-opt').forEach(o=>o.addEventListener('click',()=>{
+  document.querySelectorAll('.color-opt').forEach(x=>x.classList.remove('active')); o.classList.add('active');
+}));
+document.querySelectorAll('.tag-row').forEach(row=>{
+  row.querySelectorAll('.tag-opt').forEach(o=>o.addEventListener('click',()=>{
+    row.querySelectorAll('.tag-opt').forEach(x=>x.classList.remove('active','health','work','home'));
+    o.classList.add('active', o.textContent.trim().toLowerCase()==='health'?'health':o.textContent.trim().toLowerCase()==='work'?'work':'home');
+  }));
+});
+document.querySelectorAll('.day-picker').forEach(row=>{
+  row.querySelectorAll('.day-opt').forEach(o=>o.addEventListener('click',()=>o.classList.toggle('active')));
+});
+document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>t.classList.toggle('on')));
+document.querySelectorAll('.seg').forEach(seg=>{
+  seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    seg.querySelectorAll('button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  }));
+});
+</script>
+
+</body>
+</html>

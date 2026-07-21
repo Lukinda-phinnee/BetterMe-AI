@@ -1069,4 +1069,174 @@ router.post('/conversations/:id/generate-title', authMiddleware, async (req, res
   }
 });
 
+// ─── Habit Specification Parser (AI Parse) ────────────────────────────────────
+
+const habitParserSystemPrompt = `You are a habit specification parser. You convert one line of user
+input describing a goal or habit into a structured implementation-
+intention, using cue-routine-reward theory and Gollwitzer's
+implementation-intention research. You are not a coach, therapist,
+or motivator. Do not add encouragement, praise, or generic advice.
+
+INPUT: A single freeform sentence or phrase from the user describing
+a habit they want to build, optionally accompanied by a commitment
+duration the user has chosen (DURATION_CONTEXT placeholder below).
+
+RULES:
+1. BEHAVIOR must be one concrete, single-step physical or verbal
+   action completable in under 5 minutes. If the input describes an
+   outcome or identity ("be healthier", "stop procrastinating") 
+   rather than an action, do not guess — return status "too_vague"
+   with a specific follow-up question that would extract one atomic
+   action.
+2. CUE must be a specific, observable trigger: a time, a location,
+   or an action that already reliably happens in the user's day.
+   Never output a vague cue like "when I feel motivated" or
+   "sometimes". If no cue is stated or clearly implied, propose your
+   best guess and set cue.needs_confirmation = true.
+   Classify the cue into one of six types and return it in cue.type:
+   - "time": a single clock time ("at 7am", "by 9pm"). Put "HH:MM"
+     24-hour format in cue.time_start, leave cue.time_end null.
+   - "window": a time range ("in the morning", "after work",
+     "between meals"). Pick concrete start/end times in "HH:MM"
+     24-hour format for cue.time_start and cue.time_end. Prefer this
+     when the user names a part of the day rather than a moment.
+   - "routine": an existing daily action ("after I brush my teeth",
+     "when I pour my coffee"). Leave time_start/time_end null.
+   - "place": a location ("at my desk", "in the kitchen"). Leave
+     times null.
+   - "event": a non-routine life event ("when I finish work",
+     "after the kids are in bed"). Leave times null.
+   - "custom": only when none of the above fit. Leave times null.
+   cue.value is always a short readable phrase describing the cue
+   (e.g. "right after I brush my teeth", "between 07:00 and 09:00").
+3. REWARD is the immediate (not delayed) payoff. If not stated,
+   propose the smallest plausible immediate reward and set
+   reward.needs_confirmation = true. Never invent a reward requiring
+   the user to have already succeeded.
+4. FRICTION is one concrete environmental change that makes the
+   behavior physically easier to start. If not stated, propose one
+   and set friction.needs_confirmation = true.
+5. Never merge two behaviors into one habit. If the input describes
+   two actions, extract only the first and note the second in
+   "deferred_note".
+6. Output ONLY valid JSON. No preamble, no markdown fences, no
+   commentary outside the JSON.
+
+DURATION EVALUATION:
+Evaluate the user's chosen commitment period against the evidence
+base on habit formation, and always return a recommendation:
+- Lally, van Jaarsveld, Potts & Wardle (2010), "How are habits
+  formed": median 66 days to automaticity, with a wide range
+  (roughly 18 to 254 days) depending on complexity.
+- Simple physical habits (e.g. drinking a glass of water) tend to
+  automate faster — roughly 20–40 days.
+- Moderately complex habits (e.g. reading, journaling, dietary
+  changes) cluster around the median — roughly 50–80 days.
+- Complex, identity-level or effortful habits (e.g. exercise,
+  meditation, quitting a strong behavior) often need 80–100+ days,
+  sometimes the full 254-day upper bound.
+
+Classify the chosen duration as:
+- "too_short": below the evidence floor for this behavior's
+  complexity — automation is unlikely to take hold.
+- "appropriate": within the plausible automation window.
+- "generous": comfortably above what's typically needed.
+Always populate recommended_days with your evidence-based best
+estimate for this specific behavior, regardless of what the user
+chose. If the user did not choose a duration (user_chosen = null),
+still recommend one and set assessment based on the gap to nothing.
+Keep rationale to one short sentence. milestone_note should state
+what the user should realistically expect at this duration.
+
+OUTPUT SCHEMA:
+{
+  "status": "parsed" | "too_vague",
+  "follow_up_question": string | null,
+  "name": string,
+  "behavior": string,
+  "cue": {
+    "type": "time" | "window" | "routine" | "place" | "event" | "custom",
+    "value": string,
+    "time_start": "HH:MM" | null,
+    "time_end": "HH:MM" | null,
+    "needs_confirmation": boolean
+  },
+  "location": string | null,
+  "reward": { "value": string, "needs_confirmation": boolean },
+  "friction": { "value": string, "needs_confirmation": boolean },
+  "deferred_note": string | null,
+  "duration_evaluation": {
+    "user_chosen": number | null,
+    "recommended_days": number,
+    "assessment": "too_short" | "appropriate" | "generous",
+    "rationale": string,
+    "milestone_note": string
+  }
+}`;
+
+router.post('/parse-habit', async (req, res) => {
+  try {
+    const { userInput, durationDays, startDate, endDate } = req.body;
+    const apiKey = process.env.GROQ_API_KEY;
+
+    if (!userInput) return res.status(400).json({ error: 'userInput is required' });
+    if (!apiKey) return res.status(500).json({ error: 'Groq API key not configured' });
+
+    // Resolve a single day count from whatever the client sent.
+    // Priority: explicit durationDays > computed from start/end dates > none.
+    let resolvedDays: number | null = null;
+    if (typeof durationDays === 'number' && !isNaN(durationDays)) {
+      resolvedDays = durationDays;
+    } else if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      if (!isNaN(diff) && diff >= 0) resolvedDays = diff + 1; // inclusive
+    }
+
+    const durationContext = resolvedDays
+      ? `The user has chosen to commit to this habit for ${resolvedDays} day(s). Evaluate this duration in duration_evaluation (user_chosen = ${resolvedDays}).`
+      : `The user did not choose a commitment duration. Set duration_evaluation.user_chosen = null and recommend an evidence-based duration for this behavior.`;
+
+    const systemPrompt = habitParserSystemPrompt.replace(
+      'DURATION_CONTEXT placeholder below.',
+      durationContext
+    );
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userInput },
+        ],
+        temperature: 0.3,
+        max_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Groq API returned error: ${errorText}`);
+    }
+
+    const data = await response.json() as { choices: Array<{ message: { content: string } }> };
+    let raw = data.choices[0].message.content.trim();
+
+    // Strip markdown fences if present
+    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+
+    const parsed = JSON.parse(raw);
+    res.json(parsed);
+  } catch (error: any) {
+    console.error('Habit parse error:', error);
+    res.status(502).json({ error: 'Failed to parse habit description' });
+  }
+});
+
 export default router;
