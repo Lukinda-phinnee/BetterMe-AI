@@ -4,7 +4,7 @@ component in habit-app.jsx.
 CONTEXT
 The form currently has a free-text "behavior" field in step 0 where 
 users type their habit idea. Replace this with a parse-then-confirm 
-flow using the Anthropic API.
+flow using the groq API.
 
 REQUIREMENTS
 

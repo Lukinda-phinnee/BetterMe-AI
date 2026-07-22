@@ -154,6 +154,7 @@ export default function HabitPage() {
         id: habit.id,
         title: habit.name,
         time: habit.reminder_time ? `${habit.reminder_time} · ${habit.frequency}` : `${habit.frequency}`,
+        reminderTime: habit.reminder_time || null,
         done: habit.completedToday,
         skipped: habit.completionStatus === 'skipped',
         completedAt: habit.completedAt || null,
@@ -167,10 +168,12 @@ export default function HabitPage() {
       const statsData = await statsResponse.json()
       setHabitStats(statsData)
 
-      // Build the month streak grid from real completion data.
-      // The grid lays out 17 day-cells per row; we show the days of the
-      // current month up to today, marking each based on whether the user
-      // completed any habit that day (done / partial / skipped / today / open).
+      // Build the month water-fill grid from real completion data.
+      // Each day is a "container": its fill height (0–100%) equals the share
+      // of habits scheduled for that weekday that were completed
+      // (done = 1, partial = 0.5, skipped/missed = 0). The denominator comes
+      // from the user's active habits and their scheduled_days, so the level
+      // reflects true progress (1 of 3 done ≈ 33%) instead of fixed steps.
       const now = new Date()
       const year = now.getFullYear()
       const month = now.getMonth()
@@ -182,38 +185,59 @@ export default function HabitPage() {
       const monthEnd = new Date(year, month, daysInMonth)
       monthEnd.setHours(23, 59, 59, 999)
 
-      const completionsResponse = await fetch(
-        `http://localhost:3001/api/habits/completions?userId=${uid}&startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}`
-      )
+      const [habitsRes, completionsResponse] = await Promise.all([
+        fetch(`http://localhost:3001/api/habits?userId=${uid}`),
+        fetch(
+          `http://localhost:3001/api/habits/completions?userId=${uid}&startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}`
+        ),
+      ])
+      const habitsData = await habitsRes.json()
+      const activeHabits: any[] = Array.isArray(habitsData) ? habitsData : []
       const completionsData = await completionsResponse.json()
 
-      // For each day this month, pick the "best" status across all habits
-      // (done > partial > skipped). Today is flagged separately.
+      // Best status per (day, habit): done > partial > skipped.
       const rank: Record<string, number> = { done: 3, partial: 2, skipped: 1 }
-      const dayStatus = new Map<number, string>()
+      const bestStatus = new Map<string, string>()
       for (const c of Array.isArray(completionsData) ? completionsData : []) {
         const cDate = new Date(c.completed_at)
         if (cDate.getFullYear() !== year || cDate.getMonth() !== month) continue
-        const d = cDate.getDate()
-        const prev = dayStatus.get(d)
+        const key = `${cDate.getDate()}__${c.habit_id}`
+        const prev = bestStatus.get(key)
         if (!prev || (rank[c.status] || 0) > (rank[prev] || 0)) {
-          dayStatus.set(d, c.status)
+          bestStatus.set(key, c.status)
         }
       }
 
       const generatedStreakDays = []
       for (let d = 1; d <= daysInMonth; d++) {
-        let status = ''
-        if (d === todayDate) {
-          status = 'today'
-        } else if (d < todayDate) {
-          const s = dayStatus.get(d)
-          if (s === 'done') status = 'done'
-          else if (s === 'partial') status = 'partial'
-          else if (s === 'skipped') status = 'warn'
-          else status = '' // open / no data
+        const cellDate = new Date(year, month, d)
+        const jsDay = cellDate.getDay()            // 0=Sun..6=Sat
+        const isoDay = jsDay === 0 ? 7 : jsDay      // 1=Mon..7=Sun (matches scheduled_days)
+        // Which of the user's active habits are due on this weekday?
+        const dueHabits = activeHabits.filter((h: any) => {
+          const sd = Array.isArray(h.scheduled_days) ? h.scheduled_days : [1, 2, 3, 4, 5, 6, 7]
+          return sd.includes(isoDay)
+        })
+        const scheduledCount = dueHabits.length
+        let doneCount = 0
+        let partialCount = 0
+        for (const h of dueHabits) {
+          const s = bestStatus.get(`${d}__${h.id}`)
+          if (s === 'done') doneCount += 1
+          else if (s === 'partial') partialCount += 1
         }
-        generatedStreakDays.push({ day: d, status })
+        const doneWeight = doneCount + partialCount * 0.5
+        const percentage = scheduledCount > 0 ? Math.round((doneWeight / scheduledCount) * 100) : 0
+        generatedStreakDays.push({
+          day: d,
+          percentage,
+          scheduledCount,
+          doneCount,
+          partialCount,
+          isRestDay: scheduledCount === 0,
+          isToday: d === todayDate,
+          isFuture: d > todayDate,
+        })
       }
       setStreakDays(generatedStreakDays)
 
@@ -839,374 +863,472 @@ export default function HabitPage() {
     </div>
   ) : null
 
+  // Routine phase filtering & focal habit selection
+  const [timeFilter, setTimeFilter] = useState<'all' | 'morning' | 'afternoon' | 'evening'>('all')
+
+  const getFilteredTodayHabits = () => {
+    if (timeFilter === 'all') return todayHabits
+    return todayHabits.filter((h: any) => {
+      const t = (h.time || '').toLowerCase()
+      const title = (h.title || '').toLowerCase()
+      if (timeFilter === 'morning') {
+        return t.includes('am') || title.includes('morning') || title.includes('wake') || title.includes('coffee') || title.includes('breakfast')
+      }
+      if (timeFilter === 'afternoon') {
+        return (t.includes('pm') && !t.includes('18:') && !t.includes('19:') && !t.includes('20:') && !t.includes('21:') && !t.includes('22:')) || title.includes('afternoon') || title.includes('lunch') || title.includes('work')
+      }
+      if (timeFilter === 'evening') {
+        return t.includes('pm') || title.includes('night') || title.includes('evening') || title.includes('bed') || title.includes('dinner')
+      }
+      return true
+    })
+  }
+
+  const focalHabit = (() => {
+    if (todayHabits.length === 0) return null
+    
+    // Sort today's habits by reminder time chronologically (nulls last)
+    const sorted = [...todayHabits].sort((a, b) => {
+      if (!a.reminderTime) return 1
+      if (!b.reminderTime) return -1
+      return a.reminderTime.localeCompare(b.reminderTime)
+    })
+
+    const activeHabits = sorted.filter((h: any) => !h.done)
+    if (activeHabits.length === 0) {
+      // Fallback: if all done, just return the first habit
+      return todayHabits[0] || null
+    }
+
+    const now = new Date()
+    const currentStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+
+    // Find the next upcoming one (reminderTime >= current time)
+    const upcoming = activeHabits.find((h: any) => {
+      if (!h.reminderTime) return false
+      return h.reminderTime >= currentStr
+    })
+
+    // If there is an upcoming one, return it. Otherwise return the first active one (earliest in past)
+    return upcoming || activeHabits[0] || null
+  })()
+
   return (
     <div className="screen active">
-      <div className="screen" style={{display: 'block', paddingTop: 0}}>
-        <div className="habit-page">
-          {/* Left Panel - Sidebar */}
-          <div className="habit-left-panel">
-            {/* Greeting and Mode Selector Row */}
-            <div className="habit-greeting-row">
-              <div className="habit-greeting">
-                <div className="habit-greeting-label">Hi {userName},</div>
-                <h1 className="habit-greeting-title">Let's build<br />momentum today</h1>
-              </div>
-
-              {/* Mode Selector */}
-              <div className="habit-mode-select">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <rect x="3" y="7" width="18" height="13" rx="2"/>
-                  <path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                </svg>
-                Work mode
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M6 9l6 6 6-6"/>
-                </svg>
-              </div>
-            </div>
-
-            {/* Widgets */}
-            <div className="habit-widgets">
-              {/* Coach Widget */}
-              <div className="habit-widget habit-widget--dark">
-                <div className="habit-widget-label">Coach</div>
-                <div className="habit-widget-msg">{habitStats?.coachInsight || 'Add a habit to start building momentum.'}</div>
-              </div>
-
-              {/* Goal Progress + This Week */}
-              <div className="habit-widgets-row">
-                <div className="habit-widget">
-                  <div className="habit-widget-label">Habit goal</div>
-                  <div className="habit-widget-big">{habitStats?.consistencyRate || 0}%</div>
-                  <div className="habit-widget-sub">Consistency this month</div>
-                </div>
-                <div className="habit-widget">
-                  <div className="habit-widget-label">This week</div>
-                  <div className="habit-widget-big">{habitStats?.weeklyCheckIns || 0}<span style={{fontSize: '15px', color: 'var(--muted)'}}>/{habitStats?.expectedThisWeek || 0}</span></div>
-                  <div className="habit-widget-sub">Habit check-ins</div>
-                </div>
-              </div>
-
-              {/* Music Player */}
-              <div className="habit-widget habit-widget--player">
-                <div className="habit-player-disc">
-                  <div className="habit-player-disc-inner"></div>
-                </div>
-                <div style={{flex: 1}}>
-                  <div className="habit-widget-label" style={{marginBottom: '2px'}}>Deep work music</div>
-                  <div className="habit-widget-sub" style={{marginTop: 0}}>Lo-fi focus mix</div>
-                  <div className="habit-player-controls">
-                    <svg viewBox="0 0 24 24" fill="currentColor" style={{width: '16px', height: '16px', color: 'var(--ink-soft)'}}>
-                      <path d="M6 18V6h2v12H6zm3.5-6L18 6v12l-8.5-6z"/>
-                    </svg>
-                    <div className="habit-player-play">
-                      <svg viewBox="0 0 24 24" fill="currentColor" style={{width: '11px', height: '11px', color: '#fff'}}>
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
-                    </div>
-                    <svg viewBox="0 0 24 24" fill="currentColor" style={{width: '16px', height: '16px', color: 'var(--ink-soft)', transform: 'scaleX(-1)'}}>
-                      <path d="M6 18V6h2v12H6zm3.5-6L18 6v12l-8.5-6z"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Focus Session */}
-              <div className="habit-widget habit-widget--dark habit-widget--focus">
-                <div className="habit-widget-label">Focus session</div>
-                <div className="habit-focus-time">00 : 20 : 00</div>
-                <div className="habit-focus-actions">
-                  <button className="habit-focus-btn habit-focus-btn--ghost">Cancel</button>
-                  <button className="habit-focus-btn habit-focus-btn--solid">Start</button>
-                </div>
-              </div>
-
-              {/* Streak Mini + Quote */}
-              <div className="habit-widgets-row">
-                <div className="habit-widget">
-                  <div className="habit-widget-label">Streak</div>
-                  <div className="habit-streak-mini">
-                    <div className="habit-ring-wrap-sm">
-                      <svg viewBox="0 0 44 44" style={{transform: 'rotate(-90deg)', width: '44px', height: '44px'}}>
-                        <circle cx="22" cy="22" r="18" fill="none" stroke="var(--surface-2)" strokeWidth="5"/>
-                        <circle cx="22" cy="22" r="18" fill="none" stroke="var(--accent)" strokeWidth="5" strokeLinecap="round" strokeDasharray="113" strokeDashoffset={113 - (113 * (habitStats?.currentStreak || 0) / 30)} style={{transition: 'stroke-dashoffset 0.5s ease'}}/>
-                      </svg>
-                      <div className="habit-ring-label-sm">{habitStats?.currentStreak || 0}</div>
-                    </div>
-                    <div className="habit-widget-sub" style={{marginTop: 0}}>days running</div>
-                  </div>
-                </div>
-                <div className="habit-widget habit-widget--quote">
-                  <div className="habit-widget-quote">"Small steps<br />still count."</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Add Widget Button */}
-            <button className="habit-add-widget-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: '15px', height: '15px'}}>
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-              Add New Widget
-            </button>
-          </div>
-
-          {/* Right Panel - Main Content */}
-          <div className="habit-right-panel">
-            {/* Row 1: Metrics */}
-            <div className="habit-row3">
-              <div className="habit-card">
-                <div style={{display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between'}}>
-                  <div>
-                    <div className="habit-metric-title">This week's habits</div>
-                    <div className="habit-metric-grid">
-                      <div className="habit-metric-item">
-                        <div className="habit-metric-ic">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width: '16px', height: '16px', color: 'var(--ink-soft)'}}>
-                            <path d="M9 11l3 3L22 4"/>
-                            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="habit-metric-num">{habitStats?.totalCheckIns || 0} of {habitStats?.expectedCheckIns || 0}</div>
-                          <div className="habit-metric-lbl">Habit check-ins done</div>
-                        </div>
-                      </div>
-                      <div className="habit-metric-item">
-                        <div className="habit-metric-ic">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width: '16px', height: '16px', color: 'var(--ink-soft)'}}>
-                            <path d="M13 2L4 14h7l-1 8 9-12h-7z"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="habit-metric-num">{habitStats?.longestStreak || 0} days</div>
-                          <div className="habit-metric-lbl">Longest active streak</div>
-                        </div>
-                      </div>
-                      <div className="habit-metric-item">
-                        <div className="habit-metric-ic">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width: '16px', height: '16px', color: 'var(--ink-soft)'}}>
-                            <circle cx="12" cy="12" r="9"/>
-                            <path d="M12 7v5l3 3"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="habit-metric-num">{habitStats?.consistencyRate || 0}%</div>
-                          <div className="habit-metric-lbl">Consistency rate</div>
-                        </div>
-                      </div>
-                      <div className="habit-metric-item">
-                        <div className="habit-metric-ic">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width: '16px', height: '16px', color: 'var(--ink-soft)'}}>
-                            <rect x="4" y="4" width="16" height="16" rx="3"/>
-                            <path d="M8 4v3M16 4v3"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="habit-metric-num">{habitStats?.totalHabits || 0}</div>
-                          <div className="habit-metric-lbl">Active habits</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="habit-cycle-ring-big">
-                    <svg viewBox="0 0 110 110" style={{transform: 'rotate(-90deg)', width: '110px', height: '110px'}}>
-                      <circle cx="55" cy="55" r="46" fill="none" stroke="var(--surface-2)" strokeWidth="9"/>
-                      <circle cx="55" cy="55" r="46" fill="none" stroke="var(--primary)" strokeWidth="9" strokeLinecap="round" strokeDasharray="289" strokeDashoffset={289 - (289 * Math.min(habitStats?.consistencyRate || 0, 100) / 100)} style={{transition: 'stroke-dashoffset 0.6s ease'}}/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="habit-card habit-stat-card">
-                <div className="habit-stat-head">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width: '15px', height: '15px'}}>
-                    <path d="M13 2L4 14h7l-1 8 9-12h-7z"/>
-                  </svg> Consistency score
-                </div>
-                <div className="habit-stat-num-row">
-                  <span className="habit-stat-num">{habitStats?.consistencyRate || 0}</span>
-                  <span className="habit-stat-unit">/100</span>
-                </div>
-                <div className="habit-mini-spark">
-                  <div style={{height: '40%'}}></div>
-                  <div style={{height: '55%'}}></div>
-                  <div style={{height: '35%'}}></div>
-                  <div style={{height: '70%'}}></div>
-                  <div style={{height: '60%'}}></div>
-                  <div style={{height: `${habitStats?.consistencyRate || 0}%`, background: 'var(--primary)'}}></div>
-                  <div style={{height: `${Math.min(habitStats?.consistencyRate || 0, 82)}%`, background: 'var(--primary)'}}></div>
-                </div>
-                <span className="habit-stat-tag">Building momentum</span>
-              </div>
-
-              <div className="habit-card habit-stat-card">
-                <div className="habit-stat-head">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width: '15px', height: '15px'}}>
-                    <path d="M12 9v4M12 17h.01"/>
-                    <circle cx="12" cy="12" r="9"/>
-                  </svg> Habits at risk
-                </div>
-                <div className="habit-stat-num-row">
-                  <span className="habit-stat-num">{todayHabits.filter((h: any) => !h.done && !h.skipped).length}</span>
-                  <span className="habit-stat-unit">remaining today</span>
-                </div>
-                <div className="habit-mini-spark">
-                  {todayHabits.slice(0, 7).map((habit: any, i: number) => (
-                    <div key={i} style={{
-                      height: habit.done ? '80%' : (habit.skipped ? '20%' : '40%'),
-                      background: habit.done ? 'var(--accent-tint)' : (habit.skipped ? 'var(--accent)' : 'var(--accent-tint)')
-                    }}></div>
-                  ))}
-                </div>
-                <span className="habit-stat-tag habit-stat-tag--warn">
-                  {todayHabits.filter((h: any) => !h.done).length > 0 ? `${todayHabits.filter((h: any) => !h.done).length} habits incomplete` : 'All habits completed!'}
+      <div className="screen" style={{ display: 'block', paddingTop: 0 }}>
+        <div className="habit-page-redesign">
+          {/* Header & Science Banner */}
+          <div className="habit-header-banner">
+            <div className="habit-hb-left">
+              <div className="habit-hb-greeting">
+                <span className="habit-hb-badge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '13px', height: '13px' }}>
+                    <path d="M13 2L4 14h7l-1 8 9-12h-7z" />
+                  </svg>
+                  BEHAVIORAL MOMENTUM
                 </span>
-              </div>
-            </div>
-
-            {/* Row 2: Today's Habits + Calendar */}
-            <div className="habit-row-split">
-              <div className="habit-card habit-today-card">
-                <div className="habit-today-head">
-                  <h2>Today's habits</h2>
-                  <div style={{display: 'flex', gap: '8px'}}>
-                    <button className="habit-btn-add" onClick={() => setShowAddHabitModal(true)}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M12 5v14M5 12h14"/>
-                      </svg> Add habit
-                    </button>
-                    <button className="habit-btn-view" onClick={() => openViewAllModal()}>
-                      View all habits
-                    </button>
-                  </div>
-                </div>
-
-                {todayHabits.map(habit => {
-                  const completedTimeStr = habit.completedAt
-                    ? new Date(habit.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : null
-
-                  return (
-                    <div
-                      key={habit.id}
-                      className={`habit-today-task ${habit.skipped ? 'habit-today-task--skipped' : ''} ${habit.done ? 'habit-today-task--done' : ''}`}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => openViewAllModal(habit.id)}
-                    >
-                      <button
-                        type="button"
-                        className={`habit-check-btn ${habit.done ? 'checked' : ''}`}
-                        onClick={(e) => handleCheckHabit(habit.id, e)}
-                        disabled={habit.done || checkingHabitId === habit.id}
-                        title={habit.done ? `Completed at ${completedTimeStr}` : 'Mark habit as done'}
-                      >
-                        {habit.done ? (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M20 6L9 17l-5-5"/>
-                          </svg>
-                        ) : (
-                          <div className="habit-check-circle" />
-                        )}
-                      </button>
-                      <div>
-                        <div className="habit-tt-title">{habit.title}</div>
-                        <div className="habit-tt-time">
-                          {habit.time}
-                          {completedTimeStr && (
-                            <span style={{ marginLeft: 6, color: 'var(--primary)', fontWeight: 600 }}>
-                              · Done at {completedTimeStr}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {habit.done && (
-                        <div className="habit-tt-done">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{width: '13px', height: '13px'}}>
-                            <path d="M20 6L9 17l-5-5"/>
-                          </svg>
-                          {completedTimeStr ? `Done (${completedTimeStr})` : 'Done'}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div className="habit-card">
-                <div className="habit-today-head">
-                  <h2 style={{fontSize: '16px'}}>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
-                </div>
-                <div className="habit-cal-strip">
-                  <div className="habit-cal-nav">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width: '12px', height: '12px'}}>
-                      <path d="M15 6l-6 6 6 6"/>
-                    </svg>
-                  </div>
-                  {(() => {
-                    const days = []
-                    const today = new Date()
-                    for (let i = -2; i <= 2; i++) {
-                      const date = new Date(today)
-                      date.setDate(today.getDate() + i)
-                      const isToday = i === 0
-                      days.push(
-                        <div key={i} className={`habit-cal-day ${isToday ? 'habit-cal-day--active' : ''}`}>
-                          <div className="habit-cal-dname">{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                          <div className="habit-cal-dnum">{date.getDate()}</div>
-                        </div>
-                      )
-                    }
-                    return days
-                  })()}
-                  <div className="habit-cal-nav" style={{marginLeft: 'auto'}}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width: '12px', height: '12px'}}>
-                      <path d="M9 6l6 6-6 6"/>
-                    </svg>
-                  </div>
-                </div>
-                <p style={{fontSize: '12.5px', color: 'var(--muted)', lineHeight: 1.6, margin: 0}}>
-                  {todayHabits.filter((h: any) => h.done).length} of {todayHabits.length} habits checked in so far — {todayHabits.filter((h: any) => !h.done).length > 0 ? `${todayHabits.filter((h: any) => !h.done).length} habit${todayHabits.filter((h: any) => !h.done).length > 1 ? 's are' : ' is'} still open` : 'all habits completed!'}
+                <h1 className="habit-hb-title">Welcome back, {userName || 'Friend'}</h1>
+                <p className="habit-hb-subtitle">
+                  Behavior change happens by anchoring tiny actions to existing cues. Protect your chain today.
                 </p>
               </div>
             </div>
 
-            {/* Row 3: Habit Streak */}
-            <div className="habit-card habit-streak-card">
-              <div className="habit-streak-head">
-                <h2>Habit streak</h2>
-                <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
-                  <div className="habit-period-select">This month 
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                      <path d="M6 9l6 6 6-6"/>
+            <div className="habit-hb-actions">
+              <button className="habit-btn-primary-lg" onClick={() => setShowAddHabitModal(true)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                <span>New Habit Stack</span>
+              </button>
+              <button className="habit-btn-secondary-lg" onClick={() => openViewAllModal()}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+                <span>Manage Habits</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Behavioral Psychology Science Metrics Bar */}
+          <div className="habit-metrics-bar">
+            {/* Metric 1: Momentum Score */}
+            <div className="habit-metric-card">
+              <div className="habit-mc-header">
+                <div className="habit-mc-icon habit-mc-icon--primary">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 3" />
+                  </svg>
+                </div>
+                <span className="habit-mc-tag">30-Day Index</span>
+              </div>
+              <div className="habit-mc-val">{habitStats?.consistencyRate || 0}%</div>
+              <div className="habit-mc-label">Momentum Score</div>
+              <div className="habit-mc-progress">
+                <div
+                  className="habit-mc-bar"
+                  style={{ width: `${Math.min(habitStats?.consistencyRate || 0, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Metric 2: "Never Miss Twice" Safety Shield */}
+            <div className="habit-metric-card habit-metric-card--shield">
+              <div className="habit-mc-header">
+                <div className="habit-mc-icon habit-mc-icon--accent">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </div>
+                <span className="habit-mc-tag habit-mc-tag--accent">Never Miss Twice</span>
+              </div>
+              <div className="habit-mc-val">
+                {todayHabits.filter((h: any) => !h.done).length} <span className="habit-mc-unit">pending</span>
+              </div>
+              <div className="habit-mc-label">
+                {todayHabits.filter((h: any) => !h.done).length === 0
+                  ? 'All habits complete — loop protected!'
+                  : 'Complete today to maintain neural strength'}
+              </div>
+              <div className="habit-mc-subtext">
+                Missing 1 day has 0% effect on long-term habit formation.
+              </div>
+            </div>
+
+            {/* Metric 3: Active Streak */}
+            <div className="habit-metric-card">
+              <div className="habit-mc-header">
+                <div className="habit-mc-icon habit-mc-icon--amber">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M13 2L4 14h7l-1 8 9-12h-7z" />
+                  </svg>
+                </div>
+                <span className="habit-mc-tag">Active Run</span>
+              </div>
+              <div className="habit-mc-val">{habitStats?.currentStreak || 0} <span className="habit-mc-unit">days</span></div>
+              <div className="habit-mc-label">Current Streak</div>
+              <div className="habit-mc-subtext">
+                Longest record: <strong>{habitStats?.longestStreak || 0} days</strong>
+              </div>
+            </div>
+
+            {/* Metric 4: Total Check-Ins */}
+            <div className="habit-metric-card">
+              <div className="habit-mc-header">
+                <div className="habit-mc-icon habit-mc-icon--indigo">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                </div>
+                <span className="habit-mc-tag">Repetitions</span>
+              </div>
+              <div className="habit-mc-val">{habitStats?.totalCheckIns || 0}</div>
+              <div className="habit-mc-label">Total Repetitions</div>
+              <div className="habit-mc-subtext">
+                {habitStats?.totalCheckIns >= 66 ? 'Automaticity threshold unlocked' : 'Building automaticity pathway'}
+              </div>
+            </div>
+          </div>
+
+          {/* Focal Habit Hero Card */}
+          {focalHabit && (
+            <div className={`habit-focus-hero ${focalHabit.done ? 'habit-focus-hero--done' : ''}`}>
+              <div className="habit-fh-content">
+                <div className="habit-fh-badge-row">
+                  <span className="habit-fh-kicker">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '12px', height: '12px' }}>
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
+                    {focalHabit.done ? 'COMPLETED TODAY' : 'PRIMARY FOCUS NOW'}
+                  </span>
+                  <span className="habit-fh-time">{focalHabit.time}</span>
+                </div>
+
+                <div className="habit-fh-formula">
+                  <span className="habit-fh-if">WHEN CUE FIRES:</span>
+                  <h2 className="habit-fh-statement">{focalHabit.title}</h2>
+                </div>
+
+                <div className="habit-fh-footer">
+                  <div className="habit-fh-identity">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '15px', height: '15px' }}>
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span>Identity: <strong>Consistent & Focused Builder</strong></span>
                   </div>
-                  <div className="habit-period-toggle">
-                    <button className="habit-period-btn habit-period-btn--active">Monthly</button>
-                    <button className="habit-period-btn">Yearly</button>
+
+                  <div className="habit-fh-cta-wrap">
+                    <button
+                      type="button"
+                      className={`habit-fh-check-btn ${focalHabit.done ? 'checked' : ''}`}
+                      onClick={(e) => handleCheckHabit(focalHabit.id, e)}
+                      disabled={focalHabit.done || checkingHabitId === focalHabit.id}
+                    >
+                      {focalHabit.done ? (
+                        <>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ width: '18px', height: '18px' }}>
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                          <span>Habit Checked Off!</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="habit-fh-btn-dot" />
+                          <span>Check In Now</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
-              <div className="habit-streak-grid">
-                {streakDays.map((day, index) => (
-                  <div key={index} className={`habit-sday habit-sday--${day.status}`}>
-                    <div className="habit-sday-box">
-                      {day.status === 'done' && (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{width: '13px', height: '13px'}}>
-                          <path d="M20 6L9 17l-5-5"/>
-                        </svg>
-                      )}
-                      {day.status === 'partial' && (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{width: '13px', height: '13px'}}>
-                          <circle cx="12" cy="12" r="8"/>
-                        </svg>
-                      )}
-                      {day.status === 'warn' && <span>!</span>}
-                      {day.status === 'today' && <span>●</span>}
-                    </div>
-                    <div className="habit-sday-dnum">{day.day}</div>
+            </div>
+          )}
+
+          {/* Main Bento Section: Habits List (Left 65%) + Insights & Tools (Right 35%) */}
+          <div className="habit-bento-grid">
+            {/* Left Column: Routine Phase Filter + Today's Habits */}
+            <div className="habit-bento-left">
+              <div className="habit-card habit-bento-card">
+                <div className="habit-bc-header">
+                  <div>
+                    <h2 className="habit-bc-title">Daily Habit Stacks</h2>
+                    <p className="habit-bc-desc">
+                      {todayHabits.filter((h: any) => h.done).length} of {todayHabits.length} habits completed today
+                    </p>
                   </div>
-                ))}
+
+                  {/* Routine Phase Filters */}
+                  <div className="habit-routine-filters">
+                    {(['all', 'morning', 'afternoon', 'evening'] as const).map((filterKey) => (
+                      <button
+                        key={filterKey}
+                        type="button"
+                        className={`habit-rf-btn ${timeFilter === filterKey ? 'active' : ''}`}
+                        onClick={() => setTimeFilter(filterKey)}
+                      >
+                        {filterKey === 'all' && 'All Routine'}
+                        {filterKey === 'morning' && 'Morning'}
+                        {filterKey === 'afternoon' && 'Afternoon'}
+                        {filterKey === 'evening' && 'Evening'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Habit Items List */}
+                <div className="habit-stack-list">
+                  {getFilteredTodayHabits().length === 0 ? (
+                    <div className="habit-empty-state">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: '32px', height: '32px', color: 'var(--muted)' }}>
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <p>No habits scheduled for this routine phase.</p>
+                      <button className="habit-btn-add-sm" onClick={() => setShowAddHabitModal(true)}>
+                        + Add Habit Stack
+                      </button>
+                    </div>
+                  ) : (
+                    getFilteredTodayHabits().map((habit: any) => {
+                      const completedTimeStr = habit.completedAt
+                        ? new Date(habit.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : null
+
+                      return (
+                        <div
+                          key={habit.id}
+                          className={`habit-row-item ${habit.done ? 'habit-row-item--done' : ''} ${habit.skipped ? 'habit-row-item--skipped' : ''}`}
+                          onClick={() => openViewAllModal(habit.id)}
+                        >
+                          <button
+                            type="button"
+                            className={`habit-row-check ${habit.done ? 'checked' : ''}`}
+                            onClick={(e) => handleCheckHabit(habit.id, e)}
+                            disabled={habit.done || checkingHabitId === habit.id}
+                            title={habit.done ? `Completed at ${completedTimeStr}` : 'Complete habit'}
+                          >
+                            {habit.done ? (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ width: '14px', height: '14px' }}>
+                                <path d="M20 6L9 17l-5-5" />
+                              </svg>
+                            ) : (
+                              <span className="habit-row-check-inner" />
+                            )}
+                          </button>
+
+                          <div className="habit-row-info">
+                            <div className="habit-row-title-wrap">
+                              <span className="habit-row-title">{habit.title}</span>
+                              {habit.done && (
+                                <span className="habit-row-done-tag">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '12px', height: '12px' }}>
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                  {completedTimeStr ? `Logged at ${completedTimeStr}` : 'Done'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="habit-row-meta">
+                              <span className="habit-row-time">{habit.time}</span>
+                              <span className="habit-row-dot">•</span>
+                              <span className="habit-row-hint">Anchor routine cue linked</span>
+                            </div>
+                          </div>
+
+                          <div className="habit-row-arrow">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '14px', height: '14px' }}>
+                              <path d="M9 18l6-6-6-6" />
+                            </svg>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* 28-Day Consistency Matrix — water-fill containers */}
+              <div className="habit-card habit-bento-card" style={{ marginTop: '16px' }}>
+                <div className="habit-bc-header">
+                  <div>
+                    <h2 className="habit-bc-title">28-Day Heatmap & Consistency</h2>
+                    <p className="habit-bc-desc">Each day fills like a glass of water — height shows the share of scheduled habits you completed.</p>
+                  </div>
+                  <span className="habit-matrix-badge">Current Month</span>
+                </div>
+
+                <div className="habit-matrix-grid">
+                  {streakDays.map((day, idx) => {
+                    const hasWater = day.percentage > 0
+                    return (
+                      <div
+                        key={idx}
+                        className={[
+                          'habit-water-cell',
+                          day.isToday ? 'habit-water-cell--today' : '',
+                          day.isFuture ? 'habit-water-cell--future' : '',
+                          day.isRestDay ? 'habit-water-cell--rest' : '',
+                          hasWater ? 'habit-water-cell--filled' : '',
+                        ].join(' ').trim()}
+                        title={
+                          day.isFuture
+                            ? `Day ${day.day} · upcoming`
+                            : day.isRestDay
+                              ? `Day ${day.day} · rest day (nothing scheduled)`
+                              : `Day ${day.day} · ${day.doneCount}/${day.scheduledCount} done${day.partialCount ? ` · ${day.partialCount} partial` : ''} (${day.percentage}%)`
+                        }
+                      >
+                        <div className="habit-water-cell-body">
+                          {hasWater && (
+                            <div
+                              className="habit-water-cell-fill"
+                              style={{ height: `${day.percentage}%`, animationDelay: `${idx * 45}ms` }}
+                            >
+                              <div className="habit-water-cell-wave" />
+                              <div className="habit-water-cell-wave habit-water-cell-wave--back" />
+                            </div>
+                          )}
+                          <span className="habit-water-cell-num">{day.day}</span>
+                          {hasWater && (
+                            <span className="habit-water-cell-pct">{day.percentage}%</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="habit-water-legend">
+                  <span className="habit-water-legend-item">
+                    <span className="habit-water-legend-vial" style={{ '--fill': '100%' } as React.CSSProperties} />
+                    All done
+                  </span>
+                  <span className="habit-water-legend-item">
+                    <span className="habit-water-legend-vial" style={{ '--fill': '40%' } as React.CSSProperties} />
+                    Partial
+                  </span>
+                  <span className="habit-water-legend-item">
+                    <span className="habit-water-legend-vial habit-water-legend-vial--empty" />
+                    None
+                  </span>
+                  <span className="habit-water-legend-item">
+                    <span className="habit-water-legend-vial habit-water-legend-vial--rest" />
+                    Rest day
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: AI Coach Insight, Focus Timer, Evidence Notes */}
+            <div className="habit-bento-right">
+              {/* Coach Insight Widget */}
+              <div className="habit-card habit-coach-card">
+                <div className="habit-cc-header">
+                  <div className="habit-cc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z" />
+                      <circle cx="12" cy="12" r="2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="habit-cc-title">Behavioral Coach</h3>
+                    <span className="habit-cc-sub">Evidence-Based Nudge</span>
+                  </div>
+                </div>
+
+                <p className="habit-cc-msg">
+                  {habitStats?.coachInsight || 'Habits become automatic after a median of 66 days. Keep your tiny routines consistent to solidify neural pathways.'}
+                </p>
+
+                <div className="habit-cc-footer">
+                  <button className="habit-cc-btn" onClick={() => setShowAddHabitModal(true)}>
+                    <span>+ Add AI Staked Habit</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Micro Focus Timer Widget */}
+              <div className="habit-card habit-timer-card">
+                <div className="habit-tc-header">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span>Micro Focus Session</span>
+                </div>
+                <div className="habit-tc-digits">20 : 00</div>
+                <div className="habit-tc-actions">
+                  <button className="habit-tc-btn habit-tc-btn--ghost">Reset</button>
+                  <button className="habit-tc-btn habit-tc-btn--solid">Start Focus</button>
+                </div>
+              </div>
+
+              {/* Evidence-Based Rules Card */}
+              <div className="habit-card habit-science-card">
+                <div className="habit-sc-header">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                  </svg>
+                  <span>4 Laws of Behavior Change</span>
+                </div>
+                <ul className="habit-sc-list">
+                  <li><strong>1. Make it Obvious:</strong> Anchor habits to strong daily triggers.</li>
+                  <li><strong>2. Make it Attractive:</strong> Pair habits with positive rewards.</li>
+                  <li><strong>3. Make it Easy:</strong> Reduce friction down to 2 minutes.</li>
+                  <li><strong>4. Make it Satisfying:</strong> Check off immediately for dopamine release.</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -1237,29 +1359,48 @@ export default function HabitPage() {
             </div>
             
             <div className="add-task-form-body">
-              <div className="habit-form-progress">
-                {steps.map((label, i) => (
-                  <div key={label} className="habit-progress-item">
-                    <div className={`habit-progress-dot ${i <= formStep ? 'habit-progress-dot-active' : ''}`}>
-                      {i < formStep ? (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{width: '11px', height: '11px', color: '#fff'}}>
-                          <path d="M20 6L9 17l-5-5"/>
-                        </svg>
-                      ) : i + 1}
+              {/* Redesigned Progress Stepper */}
+              <div className="habit-form-progress-new">
+                {steps.map((label, i) => {
+                  const isActive = i === formStep
+                  const isCompleted = i < formStep
+                  return (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 'none' }}>
+                      <div className={`habit-progress-step ${isActive ? 'active' : isCompleted ? 'completed' : ''}`}>
+                        <div className="step-num">
+                          {isCompleted ? (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{width: '10px', height: '10px', color: 'currentColor'}}>
+                              <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : i + 1}
+                        </div>
+                        <span className="step-label">{label}</span>
+                      </div>
+                      {i < steps.length - 1 && (
+                        <div className={`step-connector ${isCompleted ? 'completed' : ''}`} />
+                      )}
                     </div>
-                    {i < steps.length - 1 && <div className="habit-progress-line" />}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {formStep === 0 && (
                 <div className="form-group">
+                  <div className="habit-scientific-tip">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <span>
+                      <strong>The 2-Minute Rule:</strong> Scale down your new habit so it takes less than 2 minutes to do (e.g. <i>"read 1 page"</i>). You must establish the habit before you can improve it.
+                    </span>
+                  </div>
+
                   <label htmlFor="habit-ai-input">Describe the habit you want to build</label>
                   <input
                     id="habit-ai-input"
                     type="text"
                     className="form-input habit-ai-input"
-                    placeholder="e.g. stop scrolling my phone at night"
+                    placeholder="e.g. read 10 pages before bed or stop scrolling my phone at night"
                     value={aiInput}
                     onChange={(e) => {
                       setAiInput(e.target.value)
@@ -1271,17 +1412,17 @@ export default function HabitPage() {
 
                   <div className="habit-duration-section">
                     <div className="habit-duration-label">
-                      How long do you want to commit? <span className="habit-duration-optional">(optional)</span>
+                      Commitment period <span className="habit-duration-optional">(optional)</span>
                     </div>
 
-                    <div className="habit-duration-chips">
+                    <div className="habit-duration-presets-grid">
                       {DURATION_PRESETS.map(p => {
                         const active = durationMode === 'preset' && durationDays === p.days
                         return (
                           <button
                             key={p.days}
                             type="button"
-                            className={`habit-duration-chip ${active ? 'habit-duration-chip-active' : ''}`}
+                            className={`habit-duration-preset-btn ${active ? 'active' : ''}`}
                             onClick={() => {
                               if (active) {
                                 setDurationMode('none')
@@ -1295,9 +1436,9 @@ export default function HabitPage() {
                             }}
                             title={p.hint || undefined}
                           >
-                            <span className="habit-duration-chip-num">{p.days}</span>
-                            <span className="habit-duration-chip-unit">days</span>
-                            {p.hint && <span className="habit-duration-chip-hint">{p.hint}</span>}
+                            <span className="preset-num">{p.days}</span>
+                            <span className="preset-unit">days</span>
+                            {p.hint && <span className="preset-badge">{p.hint}</span>}
                           </button>
                         )
                       })}
@@ -1349,17 +1490,17 @@ export default function HabitPage() {
 
                   <button
                     type="button"
-                    className={`btn btn-solid habit-parse-btn`}
+                    className="btn btn-solid habit-parse-btn"
                     disabled={!aiInput.trim() || isParsing}
                     onClick={handleAiParse}
-                    style={{ marginTop: 10, opacity: (!aiInput.trim() || isParsing) ? 0.6 : 1, cursor: (!aiInput.trim() || isParsing) ? 'not-allowed' : 'pointer' }}
+                    style={{ marginTop: 16, opacity: (!aiInput.trim() || isParsing) ? 0.6 : 1, cursor: (!aiInput.trim() || isParsing) ? 'not-allowed' : 'pointer' }}
                   >
                     {isParsing ? (
                       <span className="habit-parse-spinner-wrap">
                         <span className="habit-parse-spinner" />
-                        Parsing...
+                        Analysing Habit...
                       </span>
-                    ) : 'Parse'}
+                    ) : 'Generate Habit Strategy'}
                   </button>
 
                   {followUpQuestion && (
@@ -1429,6 +1570,16 @@ export default function HabitPage() {
               {formStep === 1 && (
                 <div className="form-group">
                   {durationEvalBanner}
+                  
+                  <div className="habit-scientific-tip">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <span>
+                      <strong>Habit Anchoring:</strong> The most effective trigger (cue) is an existing action in your daily routine. Connect your new habit to an established anchor.
+                    </span>
+                  </div>
+
                   <label htmlFor="habit-cue">Trigger (when this happens)</label>
                   <div className="habit-card-hint">Pick how you want to be cued. The AI suggestion is pre-selected — switch to any type if it fits better.</div>
                   {isAiParsed && !confirmedFields.cue && (
@@ -1439,27 +1590,68 @@ export default function HabitPage() {
                       AI suggested — confirm or edit
                     </div>
                   )}
+                  
                   <div className={`habit-ai-confirm-field ${isAiParsed && confirmedFields.cue ? 'habit-ai-confirmed' : ''}`}>
-                    {/* Trigger-type chip row — always visible so the user can switch
-                        away from the AI suggestion. */}
-                    <div className="habit-trigger-type-row">
+                    {/* Redesigned trigger grid using inline SVGs */}
+                    <div className="habit-trigger-grid">
                       {TRIGGER_TYPES.map(t => {
                         const active = cueType === t.id
+                        let icon = null
+                        if (t.id === 'routine') {
+                          icon = (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                            </svg>
+                          )
+                        } else if (t.id === 'time') {
+                          icon = (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                          )
+                        } else if (t.id === 'window') {
+                          icon = (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M5 2h14v2H5zM5 22h14v-2H5zM19 4v4.3c0 .6-.3 1.2-.8 1.6L13 14l5.2 4.1c.5.4.8 1 .8 1.6V22M5 4v4.3c0 .6.3 1.2.8 1.6L11 14l-5.2 4.1c-.5.4-.8 1-.8 1.6V22"/>
+                            </svg>
+                          )
+                        } else if (t.id === 'place') {
+                          icon = (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                            </svg>
+                          )
+                        } else if (t.id === 'event') {
+                          icon = (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                          )
+                        } else {
+                          icon = (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                            </svg>
+                          )
+                        }
+
                         return (
                           <button
                             key={t.id}
                             type="button"
-                            className={`habit-trigger-type-chip ${active ? 'habit-trigger-type-chip-active' : ''}`}
+                            className={`habit-trigger-card ${active ? 'active' : ''}`}
                             onClick={() => { setCueType(t.id); if (isAiParsed) confirmField('cue') }}
                             title={t.hint}
                           >
-                            {t.label}
+                            {icon}
+                            <span className="card-label">{t.label}</span>
+                            <span className="card-hint">{t.hint}</span>
                           </button>
                         )
                       })}
                     </div>
 
-                    {/* Per-type inputs — only the active type's inputs render. */}
+                    {/* Per-type inputs */}
                     {cueType === 'routine' && (
                       <div style={{marginTop: 10}}>
                         {ROUTINE_PRESETS.map(p => {
@@ -1500,7 +1692,11 @@ export default function HabitPage() {
                         <input
                           type="time"
                           value={cueTime}
-                          onChange={(e) => { setCueTime(e.target.value); if (isAiParsed) confirmField('cue') }}
+                          onChange={(e) => {
+                            setCueTime(e.target.value);
+                            setReminderTime(e.target.value);
+                            if (isAiParsed) confirmField('cue');
+                          }}
                           className="form-input"
                           style={{flex: '0 0 140px'}}
                         />
@@ -1513,7 +1709,11 @@ export default function HabitPage() {
                         <input
                           type="time"
                           value={cueTimeStart}
-                          onChange={(e) => { setCueTimeStart(e.target.value); if (isAiParsed) confirmField('cue') }}
+                          onChange={(e) => {
+                            setCueTimeStart(e.target.value);
+                            setReminderTime(e.target.value);
+                            if (isAiParsed) confirmField('cue');
+                          }}
                           className="form-input"
                           style={{flex: '0 0 110px'}}
                         />
@@ -1566,7 +1766,7 @@ export default function HabitPage() {
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width: '13px', height: '13px'}}>
                         <path d="M20 6L9 17l-5-5"/>
                       </svg>
-                      Confirm
+                      Confirm Trigger
                     </button>
                   )}
                 </div>
@@ -1575,6 +1775,16 @@ export default function HabitPage() {
               {formStep === 2 && (
                 <div className="form-group">
                   {durationEvalBanner}
+
+                  <div className="habit-scientific-tip">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <span>
+                      <strong>The Dopamine Loop:</strong> The brain cements a habit based on expected rewards. Choose a simple, immediate reward. Lower friction so compliance is effortless.
+                    </span>
+                  </div>
+
                   <label htmlFor="habit-reward">Reward</label>
                   <div className="habit-card-hint">The brain reinforces the cue when it expects something back right away. Name it.</div>
                   {isAiParsed && !confirmedFields.reward && (
@@ -1600,7 +1810,7 @@ export default function HabitPage() {
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width: '13px', height: '13px'}}>
                         <path d="M20 6L9 17l-5-5"/>
                       </svg>
-                      Confirm
+                      Confirm Reward
                     </button>
                   )}
 
@@ -1628,7 +1838,7 @@ export default function HabitPage() {
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width: '13px', height: '13px'}}>
                         <path d="M20 6L9 17l-5-5"/>
                       </svg>
-                      Confirm
+                      Confirm Friction Strategy
                     </button>
                   )}
                 </div>
@@ -1646,8 +1856,31 @@ export default function HabitPage() {
                     onChange={(e) => setHabitName(e.target.value)}
                     style={{ marginBottom: 16 }}
                   />
-                  <label>Implementation intention</label>
-                  <div className="habit-sentence">{sentence}</div>
+                  
+                  {/* Premium Commitment Intention Formula Block */}
+                  <div className="habit-sentence-formula">
+                    <div className="formula-title">Implementation Intention</div>
+                    <div className="formula-text">
+                      When <span className="formula-variable var-cue">{effectiveCue || "…"}</span>, I will <span className="formula-variable var-behavior">{behavior || "…"}</span>.
+                    </div>
+                  </div>
+
+                  {/* Daily Reminder Time Input */}
+                  <div style={{ marginTop: 16 }}>
+                    <label htmlFor="habit-reminder-time">Daily Reminder Time</label>
+                    <div className="habit-time-input-row" style={{ marginTop: 8 }}>
+                      <input
+                        id="habit-reminder-time"
+                        type="time"
+                        className="form-input"
+                        value={reminderTime}
+                        onChange={(e) => setReminderTime(e.target.value)}
+                        style={{ flex: '0 0 140px' }}
+                      />
+                      <span className="habit-time-input-hint">Set when you want to receive notifications</span>
+                    </div>
+                  </div>
+
                   {reward && <><label style={{marginTop: 16}}>Reward</label><div className="habit-plain-text">{reward}</div></>}
                   {friction && <><label style={{marginTop: 16}}>Friction removed</label><div className="habit-plain-text">{friction}</div></>}
                   {(durationDays || startDate) && (
@@ -1687,116 +1920,171 @@ export default function HabitPage() {
       {showViewAllHabitsModal && (
         <div className="habit-overlay open" onClick={() => setShowViewAllHabitsModal(false)}>
           <div className="habit-modal wide" onClick={(e) => e.stopPropagation()}>
-            <div className="habit-modal-head">
-              <div className="habit-hd-header">
-                <div className="habit-hd-ic-big" style={{ background: selectedHabitDetail?.color || 'var(--primary-tint)', color: 'var(--ink)' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M4 15c3-1 4-6 8-6s5 5 8 6"/>
+
+            {/* Header */}
+            <div className="mng-header">
+              <div className="mng-header-left">
+                <div className="mng-header-icon" style={{ background: selectedHabitDetail?.color || 'var(--primary-tint)' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
                   </svg>
                 </div>
                 <div>
-                  <div className="habit-hd-name">{selectedHabitDetail?.name || 'All Habits'}</div>
-                  <div className="habit-hd-meta">
-                    {selectedHabitDetail ? (
-                      `${selectedHabitDetail.frequency || 'Daily'} · ${selectedHabitDetail.anchor_routine ? `anchored: ${selectedHabitDetail.anchor_routine}` : 'No anchor routine'} · ${selectedHabitDetail.reminder_time || 'No reminder time'}`
-                    ) : (
-                      'Select a habit to view details'
-                    )}
+                  <div className="mng-header-title">{selectedHabitDetail?.name || 'Manage Habits'}</div>
+                  <div className="mng-header-sub">
+                    {selectedHabitDetail
+                      ? `${selectedHabitDetail.frequency || 'Daily'} · Reminder: ${selectedHabitDetail.reminder_time || 'not set'}`
+                      : `${allHabits.length} habit${allHabits.length !== 1 ? 's' : ''} tracked`}
                   </div>
                 </div>
               </div>
-              <button className="habit-modal-close" onClick={() => setShowViewAllHabitsModal(false)}>✕</button>
+              <button className="mng-close-btn" onClick={() => setShowViewAllHabitsModal(false)} aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:'18px',height:'18px'}}>
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             </div>
 
             <div className="habit-modal-body">
               <div className="habit-hd-split">
-                {/* Left Pane - Habits List */}
+
+                {/* Left Pane — Sorted Habits List */}
                 <div className="habit-hd-list">
                   {allHabits.length === 0 ? (
-                    <div style={{ padding: '20px 10px', fontSize: '12px', color: 'var(--muted)', textAlign: 'center' }}>
-                      No habits found.
+                    <div className="mng-empty-state">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/>
+                      </svg>
+                      <span>No habits yet. Add your first one!</span>
                     </div>
                   ) : (
                     allHabits.map((h: any) => {
                       const isSelected = selectedHabitId === h.id
                       const todayStatus = todayHabits.find((t: any) => t.id === h.id)
                       const currentStreak = h.streak?.current_streak || 0
+                      const isDone = todayStatus?.done
+                      const isSkipped = todayStatus?.skipped
                       return (
                         <div
                           key={h.id}
-                          className={`habit-hd-list-item ${isSelected ? 'active' : ''}`}
+                          className={`mng-habit-row ${isSelected ? 'mng-habit-row--active' : ''} ${isDone ? 'mng-habit-row--done' : ''}`}
                           onClick={() => selectHabit(h.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => e.key === 'Enter' && selectHabit(h.id)}
                         >
-                          <div className="habit-hd-list-ic" style={{ background: h.color || 'var(--primary-tint)' }}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M4 15c3-1 4-6 8-6s5 5 8 6"/>
-                            </svg>
+                          <div className="mng-habit-color-bar" style={{ background: h.color || 'var(--primary)' }} />
+                          <div className="mng-habit-ic" style={{ background: h.color ? `${h.color}22` : 'var(--primary-tint)' }}>
+                            {isDone ? (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M20 6L9 17l-5-5"/>
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="9"/>
+                              </svg>
+                            )}
                           </div>
-                          <div className="habit-hd-list-info">
-                            <div className="habit-hd-list-title">{h.name}</div>
-                            <div className="habit-hd-list-sub">
-                              {todayStatus?.done ? (
-                                <span style={{ color: 'var(--primary)', fontWeight: 600 }}>✓ Today</span>
-                              ) : todayStatus?.skipped ? (
-                                <span style={{ color: 'var(--muted)' }}>Skipped</span>
-                              ) : (
-                                <span>Pending today</span>
+                          <div className="mng-habit-info">
+                            <div className="mng-habit-name">{h.name}</div>
+                            <div className="mng-habit-meta">
+                              {h.reminder_time && (
+                                <span className="mng-habit-time">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:'10px',height:'10px'}}>
+                                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                                  </svg>
+                                  {h.reminder_time}
+                                </span>
                               )}
-                              {currentStreak > 0 && (
-                                <span className="habit-hd-badge">🔥 {currentStreak}</span>
+                              {isDone ? (
+                                <span className="mng-status mng-status--done">Done</span>
+                              ) : isSkipped ? (
+                                <span className="mng-status mng-status--skipped">Skipped</span>
+                              ) : (
+                                <span className="mng-status mng-status--pending">Pending</span>
                               )}
                             </div>
                           </div>
+                          {currentStreak > 0 && (
+                            <div className="mng-streak-badge">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:'11px',height:'11px'}}>
+                                <path d="M13 2L4 14h7l-1 8 9-12h-7z"/>
+                              </svg>
+                              {currentStreak}
+                            </div>
+                          )}
                         </div>
                       )
                     })
                   )}
                 </div>
 
-                {/* Right Pane - Selected Habit Detail */}
+                {/* Right Pane — Detail + Edit */}
                 <div className="habit-hd-detail">
                   <div className="habit-hd-tabs">
-                    <button className={selectedHabitTab === 'overview' ? 'active' : ''} onClick={() => setSelectedHabitTab('overview')}>Overview</button>
-                    <button className={selectedHabitTab === 'edit' ? 'active' : ''} onClick={() => setSelectedHabitTab('edit')}>Edit settings</button>
+                    <button className={selectedHabitTab === 'overview' ? 'active' : ''} onClick={() => setSelectedHabitTab('overview')}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                      </svg>
+                      Overview
+                    </button>
+                    <button className={selectedHabitTab === 'edit' ? 'active' : ''} onClick={() => setSelectedHabitTab('edit')}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                      Edit
+                    </button>
                   </div>
 
                   {detailLoading ? (
-                    <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--muted)' }}>Loading habit details...</div>
+                    <div className="mng-loading">
+                      <div className="mng-loading-spinner" />
+                      Loading details...
+                    </div>
                   ) : !selectedHabitDetail ? (
-                    <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--muted)' }}>Select a habit from the list</div>
+                    <div className="mng-select-prompt">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/>
+                      </svg>
+                      Select a habit from the list to view details
+                    </div>
                   ) : (
                     <>
-                      {/* OVERVIEW TAB */}
+                      {/* ── OVERVIEW TAB ── */}
                       {selectedHabitTab === 'overview' && (
                         <div className="habit-hd-view active">
-                          <div className="habit-hd-stats">
-                            <div className="habit-hd-stat">
-                              <div className="n">{habitDetailVM.currentStreak}</div>
-                              <div className="l">Current streak</div>
+
+                          {/* Stat strip */}
+                          <div className="mng-stat-strip">
+                            <div className="mng-stat-cell">
+                              <div className="mng-stat-val">{habitDetailVM.currentStreak}</div>
+                              <div className="mng-stat-lbl">Current streak</div>
                             </div>
-                            <div className="habit-hd-stat">
-                              <div className="n">{habitDetailVM.longestStreak}</div>
-                              <div className="l">Longest streak</div>
+                            <div className="mng-stat-divider" />
+                            <div className="mng-stat-cell">
+                              <div className="mng-stat-val">{habitDetailVM.longestStreak}</div>
+                              <div className="mng-stat-lbl">Longest streak</div>
                             </div>
-                            <div className="habit-hd-stat">
-                              <div className="n">{habitDetailVM.consistency}%</div>
-                              <div className="l">30-day consistency</div>
+                            <div className="mng-stat-divider" />
+                            <div className="mng-stat-cell">
+                              <div className="mng-stat-val">{habitDetailVM.consistency}%</div>
+                              <div className="mng-stat-lbl">30-day rate</div>
                             </div>
-                            <div className="habit-hd-stat">
-                              <div className="n">{habitDetailVM.totalCheckIns}</div>
-                              <div className="l">Total check-ins</div>
+                            <div className="mng-stat-divider" />
+                            <div className="mng-stat-cell">
+                              <div className="mng-stat-val">{habitDetailVM.totalCheckIns}</div>
+                              <div className="mng-stat-lbl">Total reps</div>
                             </div>
                           </div>
 
+                          {/* Consistency ring + label */}
                           <div className="habit-hd-ring-row">
                             <div className="habit-hd-ring-wrap">
                               <svg viewBox="0 0 78 78">
                                 <circle className="habit-hd-ring-track" cx="39" cy="39" r="32"/>
                                 <circle
                                   className="habit-hd-ring-progress"
-                                  cx="39"
-                                  cy="39"
-                                  r="32"
+                                  cx="39" cy="39" r="32"
                                   strokeDasharray="201"
                                   strokeDashoffset={habitDetailVM.ringOffset}
                                   style={{ transition: 'stroke-dashoffset 0.5s ease' }}
@@ -1814,59 +2102,123 @@ export default function HabitPage() {
                             </div>
                           </div>
 
-                          {/* Full Habit Details Breakdown */}
-                          <div className="habit-stack-box" style={{ marginBottom: 20 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', marginBottom: 6 }}>
-                              Implementation Intention
-                            </div>
-                            <div className="habit-stack-sentence" style={{ fontWeight: 500, fontSize: '13.5px' }}>
-                              When <span className="fill">{selectedHabitDetail.anchor_routine || 'it is time'}</span>, I will <span className="fill">{selectedHabitDetail.behavior || selectedHabitDetail.name}</span>.
+                          {/* Implementation Intention card */}
+                          <div className="mng-intention-card">
+                            <div className="mng-intention-label">Implementation Intention</div>
+                            <div className="mng-intention-text">
+                              When{' '}
+                              <span className="mng-fill mng-fill--cue">{selectedHabitDetail.anchor_routine || 'it is time'}</span>
+                              , I will{' '}
+                              <span className="mng-fill mng-fill--action">{selectedHabitDetail.behavior || selectedHabitDetail.name}</span>.
                             </div>
 
                             {selectedHabitDetail.reward && (
-                              <div style={{ marginTop: 12 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)' }}>Reward</div>
-                                <div style={{ fontSize: '13px', color: 'var(--ink)', marginTop: 2 }}>{selectedHabitDetail.reward}</div>
+                              <div className="mng-detail-row">
+                                <div className="mng-detail-row-icon">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                  </svg>
+                                </div>
+                                <div>
+                                  <div className="mng-detail-row-label">Reward</div>
+                                  <div className="mng-detail-row-value">{selectedHabitDetail.reward}</div>
+                                </div>
                               </div>
                             )}
 
                             {selectedHabitDetail.friction && (
-                              <div style={{ marginTop: 10 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)' }}>Friction Removed</div>
-                                <div style={{ fontSize: '13px', color: 'var(--ink)', marginTop: 2 }}>{selectedHabitDetail.friction}</div>
+                              <div className="mng-detail-row">
+                                <div className="mng-detail-row-icon">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 6L6 18M6 6l12 12"/>
+                                  </svg>
+                                </div>
+                                <div>
+                                  <div className="mng-detail-row-label">Friction Removed</div>
+                                  <div className="mng-detail-row-value">{selectedHabitDetail.friction}</div>
+                                </div>
                               </div>
                             )}
 
-                            {(selectedHabitDetail.location || selectedHabitDetail.target_days || selectedHabitDetail.start_date) && (
-                              <div style={{ marginTop: 10, display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--muted)', borderTop: '1px dashed var(--border)', paddingTop: 8 }}>
-                                {selectedHabitDetail.location && <span>Location: <strong style={{ color: 'var(--ink)' }}>{selectedHabitDetail.location}</strong></span>}
-                                {selectedHabitDetail.target_days && <span>Commitment: <strong style={{ color: 'var(--ink)' }}>{selectedHabitDetail.target_days} days</strong></span>}
-                                {selectedHabitDetail.start_date && <span>Start: <strong style={{ color: 'var(--ink)' }}>{selectedHabitDetail.start_date}</strong></span>}
-                                {selectedHabitDetail.end_date && <span>End: <strong style={{ color: 'var(--ink)' }}>{selectedHabitDetail.end_date}</strong></span>}
+                            {(selectedHabitDetail.reminder_time || selectedHabitDetail.location || selectedHabitDetail.target_days || selectedHabitDetail.start_date) && (
+                              <div className="mng-meta-chips">
+                                {selectedHabitDetail.reminder_time && (
+                                  <span className="mng-chip">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:'11px',height:'11px'}}>
+                                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                                    </svg>
+                                    {selectedHabitDetail.reminder_time}
+                                  </span>
+                                )}
+                                {selectedHabitDetail.location && (
+                                  <span className="mng-chip">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:'11px',height:'11px'}}>
+                                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    {selectedHabitDetail.location}
+                                  </span>
+                                )}
+                                {selectedHabitDetail.target_days && (
+                                  <span className="mng-chip">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:'11px',height:'11px'}}>
+                                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                                    </svg>
+                                    {selectedHabitDetail.target_days} day commitment
+                                  </span>
+                                )}
+                                {selectedHabitDetail.start_date && (
+                                  <span className="mng-chip">Started {selectedHabitDetail.start_date}</span>
+                                )}
                               </div>
                             )}
                           </div>
 
-                          <div className="habit-hd-cal-title">Last 28 days</div>
-                          <div className="habit-hd-cal-grid">
-                            {selectedHabitCalendar.length === 0 ? (
-                              <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: 'var(--muted)' }}>No completion history yet</div>
-                            ) : (
-                              selectedHabitCalendar.map((item: any, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className={`habit-hd-day ${item.status || ''} ${idx === selectedHabitCalendar.length - 1 ? 'today' : ''}`}
-                                  title={`${item.date}: ${item.status || 'no record'}`}
-                                />
-                              ))
-                            )}
+                          {/* 28-Day Water Container Heatmap */}
+                          <div className="mng-cal-section">
+                            <div className="mng-cal-title">28-Day Consistency</div>
+                            <div className="habit-hd-cal-grid">
+                              {selectedHabitCalendar.length === 0 ? (
+                                <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: 'var(--muted)' }}>No completion history yet</div>
+                              ) : (
+                                selectedHabitCalendar.map((item: any, idx: number) => {
+                                  const fillPercentage = item.status === 'done' ? 100 : item.status === 'partial' ? 50 : 0
+                                  const isToday = idx === selectedHabitCalendar.length - 1
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`habit-water-container ${isToday ? 'today' : ''}`}
+                                      title={`${item.date}: ${item.status || 'no record'}`}
+                                    >
+                                      <div 
+                                        className="habit-water-fill"
+                                        style={{ 
+                                          '--fill-height': `${fillPercentage}%`,
+                                          animationDelay: `${idx * 50}ms`
+                                        } as React.CSSProperties}
+                                      >
+                                        <div className="habit-water-wave" />
+                                      </div>
+                                      <div className="habit-water-label">{idx + 1}</div>
+                                    </div>
+                                  )
+                                })
+                              )}
+                            </div>
+                            <div className="mng-cal-legend">
+                              <span className="mng-legend-item"><span className="mng-legend-dot mng-legend-dot--done" />100% Done</span>
+                              <span className="mng-legend-item"><span className="mng-legend-dot mng-legend-dot--partial" />50% Partial</span>
+                              <span className="mng-legend-item"><span className="mng-legend-dot mng-legend-dot--empty" />0% Empty</span>
+                            </div>
                           </div>
 
-                          <div className="habit-coach-insight">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M12 3a7 7 0 00-7 7c0 2 1 3.5 2 4.5V17a2 2 0 002 2h6a2 2 0 002-2v-2.5c1-1 2-2.5 2-4.5a7 7 0 00-7-7z"/>
-                            </svg>
-                            <p>
+                          {/* Coach Insight */}
+                          <div className="mng-insight-card">
+                            <div className="mng-insight-icon">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 3a7 7 0 00-7 7c0 2 1 3.5 2 4.5V17a2 2 0 002 2h6a2 2 0 002-2v-2.5c1-1 2-2.5 2-4.5a7 7 0 00-7-7z"/>
+                              </svg>
+                            </div>
+                            <p className="mng-insight-text">
                               {selectedHabitDetail.is_active === false
                                 ? 'This habit is currently paused. Resume anytime to start tracking progress again.'
                                 : habitDetailVM.currentStreak >= 7
@@ -1879,184 +2231,122 @@ export default function HabitPage() {
                         </div>
                       )}
 
-                      {/* EDIT SETTINGS TAB */}
+                      {/* ── EDIT SETTINGS TAB ── */}
                       {selectedHabitTab === 'edit' && (
                         <div className="habit-hd-view active">
-                          <div className="habit-field">
-                            <label htmlFor="edit-habit-name">Habit Name *</label>
-                            <input
-                              id="edit-habit-name"
-                              className="habit-input"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              placeholder="e.g. Read before bed"
-                            />
-                          </div>
 
-                          <div className="habit-field">
-                            <label htmlFor="edit-anchor-routine">Anchor Routine (Trigger)</label>
-                            <input
-                              id="edit-anchor-routine"
-                              className="habit-input"
-                              value={editAnchorRoutine}
-                              onChange={(e) => setEditAnchorRoutine(e.target.value)}
-                              placeholder="e.g. Right after I pour my morning coffee"
-                            />
-                          </div>
-
-                          <div className="habit-field">
-                            <label htmlFor="edit-behavior">Target Action / Behavior</label>
-                            <textarea
-                              id="edit-behavior"
-                              className="habit-textarea"
-                              rows={2}
-                              value={editBehavior}
-                              onChange={(e) => setEditBehavior(e.target.value)}
-                              placeholder="e.g. read 10 pages"
-                            />
-                          </div>
-
-                          <div className="habit-stack-box" style={{ marginBottom: 18 }}>
-                            <div className="habit-stack-sentence">
-                              When <span className="fill">{editAnchorRoutine || 'routine occurs'}</span>, I will <span className="fill">{editBehavior || editName || 'action'}</span>.
-                            </div>
-                          </div>
-
-                          <div className="habit-row2">
+                          {/* Identity */}
+                          <div className="mng-edit-section">
+                            <div className="mng-edit-section-title">Identity</div>
                             <div className="habit-field">
-                              <label htmlFor="edit-reward">Reward</label>
-                              <input
-                                id="edit-reward"
-                                className="habit-input"
-                                value={editReward}
-                                onChange={(e) => setEditReward(e.target.value)}
-                                placeholder="e.g. cross off tally"
-                              />
+                              <label htmlFor="edit-habit-name">Habit Name *</label>
+                              <input id="edit-habit-name" className="habit-input" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="e.g. Read before bed" />
                             </div>
-                            <div className="habit-field">
-                              <label htmlFor="edit-friction">Friction Removed</label>
-                              <input
-                                id="edit-friction"
-                                className="habit-input"
-                                value={editFriction}
-                                onChange={(e) => setEditFriction(e.target.value)}
-                                placeholder="e.g. leave book on pillow"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="habit-row2">
-                            <div className="habit-field">
-                              <label htmlFor="edit-category">Category</label>
-                              <select
-                                id="edit-category"
-                                className="habit-select"
-                                value={editCategory}
-                                onChange={(e) => setEditCategory(e.target.value)}
-                              >
-                                <option value="health">Health & Wellness</option>
-                                <option value="work">Work & Focus</option>
-                                <option value="study">Study & Learning</option>
-                                <option value="personal">Personal Growth</option>
-                                <option value="fitness">Fitness</option>
-                                <option value="mindfulness">Mindfulness</option>
-                              </select>
-                            </div>
-                            <div className="habit-field">
-                              <label htmlFor="edit-location">Location</label>
-                              <input
-                                id="edit-location"
-                                className="habit-input"
-                                value={editLocation}
-                                onChange={(e) => setEditLocation(e.target.value)}
-                                placeholder="e.g. Bedroom desk"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="habit-row2">
-                            <div className="habit-field">
-                              <label htmlFor="edit-target-days">Commitment Target (days)</label>
-                              <input
-                                id="edit-target-days"
-                                className="habit-input"
-                                type="number"
-                                value={editTargetDays}
-                                onChange={(e) => setEditTargetDays(e.target.value)}
-                                placeholder="e.g. 21, 66, 90"
-                              />
-                            </div>
-                            <div className="habit-field">
-                              <label htmlFor="edit-reminder-time">Reminder time</label>
-                              <input
-                                id="edit-reminder-time"
-                                className="habit-input"
-                                type="time"
-                                value={editReminderTime}
-                                onChange={(e) => setEditReminderTime(e.target.value)}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="habit-field">
-                            <label htmlFor="edit-reminder-tone">Reminder tone</label>
-                            <select
-                              id="edit-reminder-tone"
-                              className="habit-select"
-                              value={editReminderTone}
-                              onChange={(e) => setEditReminderTone(e.target.value)}
-                            >
-                              {TONE_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="habit-field">
-                            <label>Frequency (Scheduled days)</label>
-                            <div className="habit-day-picker">
-                              {[1, 2, 3, 4, 5, 6, 7].map((day, idx) => {
-                                const active = editScheduledDays.includes(day)
-                                return (
-                                  <div
-                                    key={day}
-                                    className={`habit-day-opt ${active ? 'active' : ''}`}
-                                    onClick={() => toggleEditDay(day)}
-                                  >
-                                    {DAY_LABELS[idx]}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-
-                          <div className="habit-danger-zone">
-                            <div className="habit-danger-row">
-                              <div>
-                                <div className="t">{selectedHabitDetail.is_active ? 'Pause this habit' : 'Resume this habit'}</div>
-                                <div className="s">{selectedHabitDetail.is_active ? 'Stop tracking without losing your history' : 'Reactivate habit tracking'}</div>
+                            <div className="habit-row2">
+                              <div className="habit-field">
+                                <label htmlFor="edit-category">Category</label>
+                                <select id="edit-category" className="habit-select" value={editCategory} onChange={(e) => setEditCategory(e.target.value)}>
+                                  <option value="health">Health & Wellness</option>
+                                  <option value="work">Work & Focus</option>
+                                  <option value="study">Study & Learning</option>
+                                  <option value="personal">Personal Growth</option>
+                                  <option value="fitness">Fitness</option>
+                                  <option value="mindfulness">Mindfulness</option>
+                                </select>
                               </div>
-                              <button
-                                type="button"
-                                className="habit-btn-danger-outline"
-                                onClick={handlePauseHabit}
-                                disabled={isPausing}
-                              >
+                              <div className="habit-field">
+                                <label htmlFor="edit-location">Location</label>
+                                <input id="edit-location" className="habit-input" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="e.g. Bedroom desk" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Implementation Intention */}
+                          <div className="mng-edit-section">
+                            <div className="mng-edit-section-title">Implementation Intention</div>
+                            <div className="habit-field">
+                              <label htmlFor="edit-anchor-routine">Anchor Routine (Trigger)</label>
+                              <input id="edit-anchor-routine" className="habit-input" value={editAnchorRoutine} onChange={(e) => setEditAnchorRoutine(e.target.value)} placeholder="e.g. Right after I pour my morning coffee" />
+                            </div>
+                            <div className="habit-field">
+                              <label htmlFor="edit-behavior">Target Action / Behaviour</label>
+                              <textarea id="edit-behavior" className="habit-textarea" rows={2} value={editBehavior} onChange={(e) => setEditBehavior(e.target.value)} placeholder="e.g. read 10 pages" />
+                            </div>
+                            <div className="mng-intention-preview">
+                              <span className="mng-intention-preview-label">Preview</span>
+                              <span>When <strong>{editAnchorRoutine || 'routine occurs'}</strong>, I will <strong>{editBehavior || editName || 'action'}</strong>.</span>
+                            </div>
+                          </div>
+
+                          {/* Motivation Loop */}
+                          <div className="mng-edit-section">
+                            <div className="mng-edit-section-title">Motivation Loop</div>
+                            <div className="habit-row2">
+                              <div className="habit-field">
+                                <label htmlFor="edit-reward">Reward</label>
+                                <input id="edit-reward" className="habit-input" value={editReward} onChange={(e) => setEditReward(e.target.value)} placeholder="e.g. cross off tally" />
+                              </div>
+                              <div className="habit-field">
+                                <label htmlFor="edit-friction">Friction Removed</label>
+                                <input id="edit-friction" className="habit-input" value={editFriction} onChange={(e) => setEditFriction(e.target.value)} placeholder="e.g. leave book on pillow" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Schedule & Reminders */}
+                          <div className="mng-edit-section">
+                            <div className="mng-edit-section-title">Schedule & Reminders</div>
+                            <div className="habit-row2">
+                              <div className="habit-field">
+                                <label htmlFor="edit-reminder-time">Reminder time</label>
+                                <input id="edit-reminder-time" className="habit-input" type="time" value={editReminderTime} onChange={(e) => setEditReminderTime(e.target.value)} />
+                              </div>
+                              <div className="habit-field">
+                                <label htmlFor="edit-reminder-tone">Reminder tone</label>
+                                <select id="edit-reminder-tone" className="habit-select" value={editReminderTone} onChange={(e) => setEditReminderTone(e.target.value)}>
+                                  {TONE_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="habit-field">
+                              <label>Frequency (Scheduled days)</label>
+                              <div className="habit-day-picker">
+                                {[1, 2, 3, 4, 5, 6, 7].map((day, idx) => {
+                                  const active = editScheduledDays.includes(day)
+                                  return (
+                                    <div key={day} className={`habit-day-opt ${active ? 'active' : ''}`} onClick={() => toggleEditDay(day)}>
+                                      {DAY_LABELS[idx]}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div className="habit-field" style={{maxWidth: '180px'}}>
+                              <label htmlFor="edit-target-days">Commitment target (days)</label>
+                              <input id="edit-target-days" className="habit-input" type="number" value={editTargetDays} onChange={(e) => setEditTargetDays(e.target.value)} placeholder="e.g. 21, 66, 90" />
+                            </div>
+                          </div>
+
+                          {/* Danger Zone */}
+                          <div className="mng-danger-zone">
+                            <div className="mng-danger-zone-title">Danger Zone</div>
+                            <div className="mng-danger-row">
+                              <div className="mng-danger-info">
+                                <div className="mng-danger-name">{selectedHabitDetail.is_active ? 'Pause this habit' : 'Resume this habit'}</div>
+                                <div className="mng-danger-sub">{selectedHabitDetail.is_active ? 'Stop tracking without losing your history' : 'Reactivate habit tracking'}</div>
+                              </div>
+                              <button type="button" className="mng-btn mng-btn--outline-warn" onClick={handlePauseHabit} disabled={isPausing}>
                                 {isPausing ? 'Updating...' : (selectedHabitDetail.is_active ? 'Pause' : 'Resume')}
                               </button>
                             </div>
-
-                            <div className="habit-danger-row" style={{ marginTop: '14px' }}>
-                              <div>
-                                <div className="t">Delete habit</div>
-                                <div className="s">Removes this habit and its history permanently</div>
+                            <div className="mng-danger-row">
+                              <div className="mng-danger-info">
+                                <div className="mng-danger-name">Delete habit</div>
+                                <div className="mng-danger-sub">Removes this habit and its history permanently</div>
                               </div>
-                              <button
-                                type="button"
-                                className="habit-btn habit-btn-danger"
-                                onClick={confirmDeleteHabit}
-                                disabled={isDeleting}
-                              >
+                              <button type="button" className="mng-btn mng-btn--danger" onClick={confirmDeleteHabit} disabled={isDeleting}>
                                 {isDeleting ? 'Deleting...' : 'Delete'}
                               </button>
                             </div>
@@ -2070,14 +2360,9 @@ export default function HabitPage() {
             </div>
 
             <div className="habit-modal-foot">
-              <button type="button" className="habit-btn habit-btn-outline" onClick={() => setShowViewAllHabitsModal(false)}>Close</button>
+              <button type="button" className="habit-btn habit-btn-close" onClick={() => setShowViewAllHabitsModal(false)}>Close</button>
               {selectedHabitTab === 'edit' && (
-                <button
-                  type="button"
-                  className="habit-btn habit-btn-primary"
-                  onClick={handleSaveHabit}
-                  disabled={isSaving || !selectedHabitId}
-                >
+                <button type="button" className="habit-btn habit-btn-primary" onClick={handleSaveHabit} disabled={isSaving || !selectedHabitId}>
                   {isSaving ? 'Saving...' : 'Save changes'}
                 </button>
               )}
