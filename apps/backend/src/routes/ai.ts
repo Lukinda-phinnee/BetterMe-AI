@@ -591,13 +591,13 @@ When user specifies a deadline (e.g., "1 week", "2 weeks", "1 month"), create a 
               if (dayPlan.tasks && Array.isArray(dayPlan.tasks)) {
                 dayPlan.tasks.forEach((task: any) => {
                   // Parse labels into proper format
-                  let parsedLabels = [];
+                  let parsedLabels: any[] = [];
                   if (task.labels) {
                     parsedLabels = [{ name: task.labels, type: 'category' }];
                   }
 
                   // Parse subtasks into checklist format
-                  let parsedChecklist = [];
+                  let parsedChecklist: any[] = [];
                   if (task.subtasks && Array.isArray(task.subtasks)) {
                     parsedChecklist = task.subtasks.map((subtask: string, idx: number) => ({
                       id: idx + 1,

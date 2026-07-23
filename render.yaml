@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: betterme-backend
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: pnpm install && pnpm --filter @betterme/backend build
+    startCommand: pnpm --filter @betterme/backend start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 18.18.0
+      - key: PORT
+        value: 10000
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
