@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useState, useEffect } from 'react'
 
 export default function HabitPage() {
@@ -146,7 +147,7 @@ export default function HabitPage() {
       setLoading(true)
       
       // Fetch today's habits
-      const todayResponse = await fetch(`http://localhost:3001/api/habits/today?userId=${uid}`)
+      const todayResponse = await fetch(`${API_BASE_URL}/api/habits/today?userId=${uid}`)
       const todayData = await todayResponse.json()
       
       // Transform today's habits to match the expected format
@@ -164,7 +165,7 @@ export default function HabitPage() {
       setTodayHabits(transformedHabits)
 
       // Fetch habit statistics
-      const statsResponse = await fetch(`http://localhost:3001/api/habits/stats?userId=${uid}`)
+      const statsResponse = await fetch(`${API_BASE_URL}/api/habits/stats?userId=${uid}`)
       const statsData = await statsResponse.json()
       setHabitStats(statsData)
 
@@ -186,9 +187,9 @@ export default function HabitPage() {
       monthEnd.setHours(23, 59, 59, 999)
 
       const [habitsRes, completionsResponse] = await Promise.all([
-        fetch(`http://localhost:3001/api/habits?userId=${uid}`),
+        fetch(`${API_BASE_URL}/api/habits?userId=${uid}`),
         fetch(
-          `http://localhost:3001/api/habits/completions?userId=${uid}&startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}`
+          `${API_BASE_URL}/api/habits/completions?userId=${uid}&startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}`
         ),
       ])
       const habitsData = await habitsRes.json()
@@ -269,7 +270,7 @@ export default function HabitPage() {
     setCheckingHabitId(habitId)
 
     try {
-      const res = await fetch('http://localhost:3001/api/habits/completions', {
+      const res = await fetch(`${API_BASE_URL}/api/habits/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -313,7 +314,7 @@ export default function HabitPage() {
 
     setIsCreating(true)
     try {
-      const response = await fetch('http://localhost:3001/api/habits', {
+      const response = await fetch(`${API_BASE_URL}/api/habits`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -427,7 +428,7 @@ export default function HabitPage() {
     if (!userId) return
 
     try {
-      const res = await fetch(`http://localhost:3001/api/habits?userId=${userId}`)
+      const res = await fetch(`${API_BASE_URL}/api/habits?userId=${userId}`)
       const data = await res.json()
       const list = Array.isArray(data) ? data : []
       setAllHabits(list)
@@ -451,8 +452,8 @@ export default function HabitPage() {
     setDetailLoading(true)
     try {
       const [detailRes, calRes] = await Promise.all([
-        fetch(`http://localhost:3001/api/habits/${habitId}`),
-        fetch(`http://localhost:3001/api/habits/${habitId}/calendar?days=28`),
+        fetch(`${API_BASE_URL}/api/habits/${habitId}`),
+        fetch(`${API_BASE_URL}/api/habits/${habitId}/calendar?days=28`),
       ])
       const detail = await detailRes.json()
       const calendar = await calRes.json()
@@ -496,7 +497,7 @@ export default function HabitPage() {
     if (!selectedHabitId || !userId) return
     setIsSaving(true)
     try {
-      const res = await fetch(`http://localhost:3001/api/habits/${selectedHabitId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/habits/${selectedHabitId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -540,7 +541,7 @@ export default function HabitPage() {
     const nextActive = habit ? !habit.is_active : false
     setIsPausing(true)
     try {
-      const res = await fetch(`http://localhost:3001/api/habits/${selectedHabitId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/habits/${selectedHabitId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: nextActive }),
@@ -569,7 +570,7 @@ export default function HabitPage() {
     setShowDeleteConfirm(false)
     setIsDeleting(true)
     try {
-      const res = await fetch(`http://localhost:3001/api/habits/${selectedHabitId}`, { method: 'DELETE' })
+      const res = await fetch(`${API_BASE_URL}/api/habits/${selectedHabitId}`, { method: 'DELETE' })
       if (!res.ok && res.status !== 204) {
         const err = await res.json().catch(() => ({}))
         alert(`Failed to delete: ${err.error || 'Unknown error'}`)
@@ -708,7 +709,7 @@ export default function HabitPage() {
         if (!isNaN(diff) && diff >= 0) payloadDays = diff + 1 // inclusive
       }
 
-      const response = await fetch('http://localhost:3001/api/ai/parse-habit', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/parse-habit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

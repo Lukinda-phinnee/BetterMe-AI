@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useState, useRef, useEffect } from 'react'
 import { ChatHistorySidebar } from './chat-history-sidebar'
 
@@ -56,7 +57,7 @@ export function AIChat() {
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const response = await fetch('http://localhost:3001/api/ai/conversations', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/conversations`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -81,7 +82,7 @@ export function AIChat() {
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const response = await fetch(`http://localhost:3001/api/ai/conversations/${conversationId}/messages`, {
+      const response = await fetch(`${API_BASE_URL}/api/ai/conversations/${conversationId}/messages`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
 
@@ -108,7 +109,7 @@ export function AIChat() {
     try {
       const token = localStorage.getItem('authToken')
       if (!token) return
-      const res = await fetch(`http://localhost:3001/api/ai/conversations/${convId}/generate-title`, {
+      const res = await fetch(`${API_BASE_URL}/api/ai/conversations/${convId}/generate-title`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -142,7 +143,7 @@ export function AIChat() {
       try {
         const token = localStorage.getItem('authToken')
         if (token) {
-          const res = await fetch('http://localhost:3001/api/ai/conversations', {
+          const res = await fetch(`${API_BASE_URL}/api/ai/conversations`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -167,7 +168,7 @@ export function AIChat() {
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ role: m.role, content: m.content }))
 
-      const response = await fetch('http://localhost:3001/api/ai/chat', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

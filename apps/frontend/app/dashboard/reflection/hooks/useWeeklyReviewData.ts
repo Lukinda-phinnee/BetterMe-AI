@@ -1,12 +1,13 @@
 'use client'
 
+import { API_BASE_URL } from '../../../../lib/config'
 import { useState, useEffect, useCallback } from 'react'
 import type { InboxItem } from '../components/steps/step1-get-clear'
 import type { HabitRetroItem, RolloverTaskItem } from '../components/steps/step2-get-current'
 import type { GoalAlignmentItem } from '../components/steps/step3-goal-alignment'
 import type { HistoricalReflection } from '../components/reflection-history-modal'
 
-const API = 'http://localhost:3001'
+const API = `${API_BASE_URL}`
 const DAYS_IN_WEEK = 7
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -1,9 +1,9 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useState, useEffect } from 'react'
 import { useDashboard } from './context'
 import { AIGoalDecomposer } from '../../components/ai-goal-decomposer'
-
 // ─── Today's schedule badge helpers ─────────────────────────────────────────
 // The badge reflects the column the task currently sits in on the board,
 // tinted with the task's own colour.
@@ -46,7 +46,7 @@ const shade = (hex: string, percent: number): string => {
 }
 
 export default function DashboardPage() {
-  const { showReviewColumn, setShowReviewColumn, showAddTask, setShowAddTask, authToken, setBoardId: setContextBoardId, setRefreshDataFn } = useDashboard()
+  const { showReviewColumn, setShowReviewColumn, showAddTask, setShowAddTask, authToken, setAuthToken, setBoardId: setContextBoardId, setRefreshDataFn } = useDashboard()
   const [cards, setCards] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [boardId, setBoardId] = useState<string | null>(null)
@@ -62,7 +62,7 @@ export default function DashboardPage() {
 
       try {
         // First get the workspace
-        const workspacesResponse = await fetch('http://localhost:3001/api/workspaces', {
+        const workspacesResponse = await fetch(`${API_BASE_URL}/api/workspaces`, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`
@@ -86,7 +86,7 @@ export default function DashboardPage() {
 
         if (!workspaceId) {
           // Create workspace if none exists
-          const createWorkspaceResponse = await fetch('http://localhost:3001/api/workspaces', {
+          const createWorkspaceResponse = await fetch(`${API_BASE_URL}/api/workspaces`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -103,7 +103,7 @@ export default function DashboardPage() {
           workspaceId = workspace.id
         }
 
-        const boardsResponse = await fetch(`http://localhost:3001/api/boards?workspace_id=${workspaceId}`, {
+        const boardsResponse = await fetch(`${API_BASE_URL}/api/boards?workspace_id=${workspaceId}`, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`
@@ -114,7 +114,7 @@ export default function DashboardPage() {
 
         if (!boardsResponse.ok || boardsResponse.status === 404) {
           // Create board if none exists
-          const createBoardResponse = await fetch('http://localhost:3001/api/boards', {
+          const createBoardResponse = await fetch(`${API_BASE_URL}/api/boards`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ export default function DashboardPage() {
 
           if (!currentBoardId) {
             // Create board if empty array
-            const createBoardResponse = await fetch('http://localhost:3001/api/boards', {
+            const createBoardResponse = await fetch(`${API_BASE_URL}/api/boards`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -157,7 +157,7 @@ export default function DashboardPage() {
         setContextBoardId(currentBoardId)
 
         // Fetch cards for the board
-        const cardsResponse = await fetch(`http://localhost:3001/api/cards?board_id=${currentBoardId}`, {
+        const cardsResponse = await fetch(`${API_BASE_URL}/api/cards?board_id=${currentBoardId}`, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`
@@ -185,7 +185,7 @@ export default function DashboardPage() {
     if (!authToken || !boardId) return
     
     try {
-      const cardsResponse = await fetch(`http://localhost:3001/api/cards?board_id=${boardId}`, {
+      const cardsResponse = await fetch(`${API_BASE_URL}/api/cards?board_id=${boardId}`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`
@@ -252,7 +252,7 @@ export default function DashboardPage() {
           completionTime: card.column_status === 'done' ? 30 : undefined // Mock completion time
         }))
 
-        const response = await fetch('http://localhost:3001/api/ai/coaching', {
+        const response = await fetch(`${API_BASE_URL}/api/ai/coaching`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -387,7 +387,7 @@ export default function DashboardPage() {
         headers['Authorization'] = `Bearer ${authToken}`
       }
 
-      const response = await fetch(`http://localhost:3001/api/cards/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/cards/${id}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ column_status: newStatus })

@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useState, useEffect } from 'react'
 import { useConfirm } from './confirm-provider'
 
@@ -41,7 +42,7 @@ export function ChatHistorySidebar({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const response = await fetch('http://localhost:3001/api/ai/conversations', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/conversations`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -63,7 +64,7 @@ export function ChatHistorySidebar({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const response = await fetch(`http://localhost:3001/api/ai/conversations/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/ai/conversations/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -100,7 +101,7 @@ export function ChatHistorySidebar({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const response = await fetch(`http://localhost:3001/api/ai/conversations/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/ai/conversations/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

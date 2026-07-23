@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useDashboard } from '../context'
 import { useConfirm } from '../../../components/confirm-provider'
@@ -150,7 +151,7 @@ export default function GoalsPage() {
     setIsLoadingConversations(true)
     try {
       console.log('Fetching conversations with token:', authToken.substring(0, 20) + '...')
-      const res = await fetch('http://localhost:3001/api/ai/conversations', {
+      const res = await fetch(`${API_BASE_URL}/api/ai/conversations`, {
         headers: { Authorization: `Bearer ${authToken}` }
       })
       console.log('Conversations response status:', res.status)
@@ -201,7 +202,7 @@ export default function GoalsPage() {
     setSelectedSuggestion(null)
     try {
       console.log('Loading conversation:', conv.id)
-      const res = await fetch(`http://localhost:3001/api/ai/conversations/${conv.id}/messages`, {
+      const res = await fetch(`${API_BASE_URL}/api/ai/conversations/${conv.id}/messages`, {
         headers: { Authorization: `Bearer ${authToken}` }
       })
       if (res.ok) {
@@ -240,7 +241,7 @@ export default function GoalsPage() {
       return
     }
     try {
-      const res = await fetch(`http://localhost:3001/api/ai/conversations/${conv.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/ai/conversations/${conv.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -276,7 +277,7 @@ export default function GoalsPage() {
     })
     if (!confirmed) return
     try {
-      const res = await fetch(`http://localhost:3001/api/ai/conversations/${conv.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/ai/conversations/${conv.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${authToken}` }
       })
@@ -310,7 +311,7 @@ export default function GoalsPage() {
   const handleSaveGoal = async () => {
     if (!authToken || !editingGoalId) return
     try {
-      const res = await fetch(`http://localhost:3001/api/goals/${editingGoalId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/goals/${editingGoalId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -349,7 +350,7 @@ export default function GoalsPage() {
     })
     if (!confirmed) return
     try {
-      const res = await fetch(`http://localhost:3001/api/goals/${goal.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/goals/${goal.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${authToken}` }
       })
@@ -375,7 +376,7 @@ export default function GoalsPage() {
   const handleSaveTask = async (card: Card) => {
     if (!authToken || !editingTaskId) return
     try {
-      const res = await fetch(`http://localhost:3001/api/cards/${editingTaskId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/cards/${editingTaskId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -414,7 +415,7 @@ export default function GoalsPage() {
     })
     if (!confirmed) return
     try {
-      const res = await fetch(`http://localhost:3001/api/cards/${card.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/cards/${card.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${authToken}` }
       })
@@ -436,10 +437,10 @@ export default function GoalsPage() {
     setIsLoadingGoals(true)
     try {
       const cardsUrl = boardId
-        ? `http://localhost:3001/api/cards?board_id=${boardId}`
-        : 'http://localhost:3001/api/cards'
+        ? `${API_BASE_URL}/api/cards?board_id=${boardId}`
+        : `${API_BASE_URL}/api/cards`
       const [goalsRes, cardsRes] = await Promise.all([
-        fetch('http://localhost:3001/api/goals', { headers: { Authorization: `Bearer ${authToken}` } }),
+        fetch(`${API_BASE_URL}/api/goals`, { headers: { Authorization: `Bearer ${authToken}` } }),
         fetch(cardsUrl, { headers: { Authorization: `Bearer ${authToken}` } }),
       ])
       if (goalsRes.ok) setGoals(await goalsRes.json())
@@ -479,7 +480,7 @@ export default function GoalsPage() {
         setStatusMessage(statuses[Math.floor(Math.random() * statuses.length)])
       }, 2500)
 
-      const response = await fetch('http://localhost:3001/api/ai/coaching', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/coaching`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
         signal: controller.signal,
@@ -573,7 +574,7 @@ export default function GoalsPage() {
     if (authToken) {
       try {
         console.log('Creating new conversation via API')
-        const res = await fetch('http://localhost:3001/api/ai/conversations', {
+        const res = await fetch(`${API_BASE_URL}/api/ai/conversations`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${authToken}`,

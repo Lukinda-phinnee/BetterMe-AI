@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useState } from 'react'
 
 interface GoalDecompositionResult {
@@ -42,7 +43,7 @@ export function AIGoalDecomposer({ goalText: initialGoalText, onClose }: AIGoalD
     setResult(null)
 
     try {
-      const response = await fetch('http://localhost:3001/api/ai/decompose-goal', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/decompose-goal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goalText, context: context || undefined })

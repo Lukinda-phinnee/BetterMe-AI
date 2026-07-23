@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useState, useEffect } from 'react'
 import '@/styles/_add-task-modal.scss'
 
@@ -35,7 +36,7 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
   // Load the user's goals so they can optionally link the task to one.
   useEffect(() => {
     if (!isOpen || !authToken) return
-    fetch('http://localhost:3001/api/goals', {
+    fetch(`${API_BASE_URL}/api/goals`, {
       headers: { Authorization: `Bearer ${authToken}` }
     })
       .then(res => res.ok ? res.json() : [])
@@ -83,7 +84,7 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
         headers['Authorization'] = `Bearer ${authToken}`
       }
 
-      const response = await fetch('http://localhost:3001/api/cards', {
+      const response = await fetch(`${API_BASE_URL}/api/cards`, {
         method: 'POST',
         headers,
         body: JSON.stringify({

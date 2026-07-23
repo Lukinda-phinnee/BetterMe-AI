@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useState, useEffect } from 'react'
 import { useDashboard } from '../context'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
@@ -54,7 +55,7 @@ export default function BoardPage() {
       }
 
       console.log('Fetching workspaces...')
-      const workspacesResponse = await fetch('http://localhost:3001/api/workspaces', { headers })
+      const workspacesResponse = await fetch(`${API_BASE_URL}/api/workspaces`, { headers })
       console.log('Workspaces response status:', workspacesResponse.status)
       
       if (!workspacesResponse.ok) {
@@ -70,7 +71,7 @@ export default function BoardPage() {
       
       if (!workspaceId) {
         console.log('No workspace found, creating new one...')
-        const createWorkspaceResponse = await fetch('http://localhost:3001/api/workspaces', {
+        const createWorkspaceResponse = await fetch(`${API_BASE_URL}/api/workspaces`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ name: 'My Workspace', description: 'Personal workspace' })
@@ -89,7 +90,7 @@ export default function BoardPage() {
       }
 
       console.log('Fetching boards for workspace:', workspaceId)
-      const boardsResponse = await fetch(`http://localhost:3001/api/boards?workspace_id=${workspaceId}`, { headers })
+      const boardsResponse = await fetch(`${API_BASE_URL}/api/boards?workspace_id=${workspaceId}`, { headers })
       console.log('Boards response status:', boardsResponse.status)
       
       if (!boardsResponse.ok) {
@@ -105,7 +106,7 @@ export default function BoardPage() {
       
       if (!currentBoardId) {
         console.log('No board found, creating new one...')
-        const createBoardResponse = await fetch('http://localhost:3001/api/boards', {
+        const createBoardResponse = await fetch(`${API_BASE_URL}/api/boards`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ workspace_id: workspaceId, name: 'My Board', description: 'Personal board' })
@@ -149,7 +150,7 @@ export default function BoardPage() {
       }
 
       console.log('Fetching cards for board:', boardId)
-      const response = await fetch(`http://localhost:3001/api/cards?board_id=${boardId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/cards?board_id=${boardId}`, {
         headers,
       })
 
@@ -352,7 +353,7 @@ export default function BoardPage() {
           headers['Authorization'] = `Bearer ${authToken}`
         }
 
-        const response = await fetch(`http://localhost:3001/api/cards/${draggableId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/cards/${draggableId}`, {
           method: 'PATCH',
           headers,
           body: JSON.stringify({ column_status: destination.droppableId })
@@ -390,7 +391,7 @@ export default function BoardPage() {
         headers['Authorization'] = `Bearer ${authToken}`
       }
 
-      const response = await fetch(`http://localhost:3001/api/cards/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/cards/${id}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ column_status: newStatus })
@@ -533,7 +534,7 @@ export default function BoardPage() {
         headers['Authorization'] = `Bearer ${authToken}`
       }
 
-      const response = await fetch(`http://localhost:3001/api/cards/${selectedCard.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/cards/${selectedCard.id}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({

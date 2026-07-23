@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import React, { useState, useEffect, useMemo } from 'react'
 import { useDashboard } from '../context'
 
@@ -27,14 +28,14 @@ export default function CalendarPage() {
         }
 
         // Get workspace
-        const workspacesResponse = await fetch('http://localhost:3001/api/workspaces', { headers })
+        const workspacesResponse = await fetch(`${API_BASE_URL}/api/workspaces`, { headers })
         if (!workspacesResponse.ok) throw new Error('Failed to fetch workspaces')
         
         const workspaces = await workspacesResponse.json()
         let workspaceId = workspaces[0]?.id
 
         if (!workspaceId) {
-          const createWorkspaceResponse = await fetch('http://localhost:3001/api/workspaces', {
+          const createWorkspaceResponse = await fetch(`${API_BASE_URL}/api/workspaces`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ name: 'My Workspace', description: 'Personal workspace' })
@@ -45,14 +46,14 @@ export default function CalendarPage() {
         }
 
         // Get board
-        const boardsResponse = await fetch(`http://localhost:3001/api/boards?workspace_id=${workspaceId}`, { headers })
+        const boardsResponse = await fetch(`${API_BASE_URL}/api/boards?workspace_id=${workspaceId}`, { headers })
         if (!boardsResponse.ok) throw new Error('Failed to fetch boards')
         
         const boards = await boardsResponse.json()
         let currentBoardId = boards[0]?.id
 
         if (!currentBoardId) {
-          const createBoardResponse = await fetch('http://localhost:3001/api/boards', {
+          const createBoardResponse = await fetch(`${API_BASE_URL}/api/boards`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ workspace_id: workspaceId, name: 'My Board', description: 'Personal board' })
@@ -66,7 +67,7 @@ export default function CalendarPage() {
         setContextBoardId(currentBoardId)
 
         // Fetch cards
-        const cardsResponse = await fetch(`http://localhost:3001/api/cards?board_id=${currentBoardId}`, { headers })
+        const cardsResponse = await fetch(`${API_BASE_URL}/api/cards?board_id=${currentBoardId}`, { headers })
         if (!cardsResponse.ok) throw new Error('Failed to fetch cards')
         
         const cardsData = await cardsResponse.json()
@@ -91,7 +92,7 @@ export default function CalendarPage() {
         'Authorization': `Bearer ${authToken}`
       }
 
-      const cardsResponse = await fetch(`http://localhost:3001/api/cards?board_id=${boardId}`, { headers })
+      const cardsResponse = await fetch(`${API_BASE_URL}/api/cards?board_id=${boardId}`, { headers })
       if (!cardsResponse.ok) throw new Error('Failed to fetch cards')
       
       const cardsData = await cardsResponse.json()
@@ -302,7 +303,7 @@ export default function CalendarPage() {
         headers['Authorization'] = `Bearer ${authToken}`
       }
 
-      const response = await fetch(`http://localhost:3001/api/cards/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/cards/${id}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ column_status: newStatus })
