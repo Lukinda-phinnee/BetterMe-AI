@@ -1,11 +1,14 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useDashboard } from '../context'
+
+type ViewMode = 'month' | 'week'
 
 export default function CalendarPage() {
   const { authToken, setBoardId: setContextBoardId, setRefreshDataFn, setShowColumnField, showAddTask, setShowAddTask } = useDashboard()
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [cards, setCards] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [boardId, setBoardId] = useState<string | null>(null)
@@ -76,9 +79,9 @@ export default function CalendarPage() {
     }
 
     initializeWorkspace()
-  }, [authToken])
+  }, [authToken, setContextBoardId])
 
-  // Create a refresh function that can be called by the modal
+  // Create a refresh function that can be called by context/modals
   const refreshData = async () => {
     if (!authToken || !boardId) return
     
@@ -109,31 +112,62 @@ export default function CalendarPage() {
   }, [setShowColumnField])
 
   // Calendar navigation
-  const goToPreviousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
+  const goToPrevious = () => {
+    if (viewMode === 'month') {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
+    } else {
+      const prevWeek = new Date(currentDate)
+      prevWeek.setDate(prevWeek.getDate() - 7)
+      setCurrentDate(prevWeek)
+    }
   }
 
-  const goToNextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
+  const goToNext = () => {
+    if (viewMode === 'month') {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
+    } else {
+      const nextWeek = new Date(currentDate)
+      nextWeek.setDate(nextWeek.getDate() + 7)
+      setCurrentDate(nextWeek)
+    }
   }
 
   const goToToday = () => {
     setCurrentDate(new Date())
   }
 
-  // Calendar calculations
-  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-  const startDayOfWeek = startOfMonth.getDay()
-  const daysInMonth = endOfMonth.getDate()
+  // Calendar cell computations
+  const calendarCells = useMemo(() => {
+    if (viewMode === 'month') {
+      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+      const startDayOfWeek = startOfMonth.getDay()
+      const daysInMonth = endOfMonth.getDate()
 
-  const calendarCells: (Date | null)[] = []
-  for (let i = 0; i < startDayOfWeek; i++) {
-    calendarCells.push(null)
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    calendarCells.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), d))
-  }
+      const cells: (Date | null)[] = []
+      for (let i = 0; i < startDayOfWeek; i++) {
+        cells.push(null)
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        cells.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), d))
+      }
+      return cells
+    } else {
+      // Week View Mode: 7 days starting from Sunday of the current date's week
+      const current = new Date(currentDate)
+      const dayOfWeek = current.getDay()
+      const sunday = new Date(current)
+      sunday.setDate(current.getDate() - dayOfWeek)
+
+      const cells: (Date | null)[] = []
+      for (let i = 0; i < 7; i++) {
+        const day = new Date(sunday)
+        day.setDate(sunday.getDate() + i)
+        cells.push(day)
+      }
+      return cells
+    }
+  }, [currentDate, viewMode])
 
   // Get tasks for a specific date (from creation date to due date)
   const getTasksForDate = (date: Date) => {
@@ -145,21 +179,18 @@ export default function CalendarPage() {
       const dueDate = new Date(card.due_date)
       const dueDateStr = dueDate.toDateString()
       
-      // Get creation date (if available, otherwise assume today)
       const creationDate = card.created_at ? new Date(card.created_at) : new Date()
       const creationDateStr = creationDate.toDateString()
       
-      // Check if current date is within the task's date range
-      const currentDate = new Date(dateStr)
+      const targetDate = new Date(dateStr)
       const startDate = new Date(creationDateStr)
       const endDate = new Date(dueDateStr)
       
-      // Reset time to compare dates only
       startDate.setHours(0, 0, 0, 0)
       endDate.setHours(0, 0, 0, 0)
-      currentDate.setHours(0, 0, 0, 0)
+      targetDate.setHours(0, 0, 0, 0)
       
-      return currentDate >= startDate && currentDate <= endDate
+      return targetDate >= startDate && targetDate <= endDate
     })
   }
 
@@ -168,27 +199,17 @@ export default function CalendarPage() {
     if (!card.due_date) return 'single'
     
     const dueDate = new Date(card.due_date)
-    const dueDateStr = dueDate.toDateString()
-    
     const creationDate = card.created_at ? new Date(card.created_at) : new Date()
-    const creationDateStr = creationDate.toDateString()
     
-    const currentDateStr = date.toDateString()
-    
-    const startDate = new Date(creationDateStr)
-    const endDate = new Date(dueDateStr)
-    const currentDate = new Date(currentDateStr)
-    
-    // Reset time to compare dates only
-    startDate.setHours(0, 0, 0, 0)
-    endDate.setHours(0, 0, 0, 0)
-    currentDate.setHours(0, 0, 0, 0)
+    const startDate = new Date(creationDate.toDateString())
+    const endDate = new Date(dueDate.toDateString())
+    const targetDate = new Date(date.toDateString())
     
     if (startDate.getTime() === endDate.getTime()) {
       return 'single'
-    } else if (currentDate.getTime() === startDate.getTime()) {
+    } else if (targetDate.getTime() === startDate.getTime()) {
       return 'start'
-    } else if (currentDate.getTime() === endDate.getTime()) {
+    } else if (targetDate.getTime() === endDate.getTime()) {
       return 'end'
     } else {
       return 'middle'
@@ -196,11 +217,10 @@ export default function CalendarPage() {
   }
 
   // Create a row mapping using interval scheduling — ensures overlapping tasks never share a row
-  const taskRowMap = React.useMemo(() => {
+  const taskRowMap = useMemo(() => {
     const map = new Map<string, number>()
     const tasksWithDates = cards.filter(c => c.due_date)
 
-    // Sort all tasks by start date, then priority, then id for stable ordering
     const sorted = [...tasksWithDates].sort((a, b) => {
       const aStart = a.created_at ? new Date(a.created_at).getTime() : Date.now()
       const bStart = b.created_at ? new Date(b.created_at).getTime() : Date.now()
@@ -212,14 +232,12 @@ export default function CalendarPage() {
       return a.id.localeCompare(b.id)
     })
 
-    // For each task assign the lowest row (1,2,3) not taken by any date-overlapping task
     sorted.forEach(task => {
       const taskStart = new Date(task.created_at ? new Date(task.created_at).toDateString() : new Date().toDateString())
       const taskEnd   = new Date(new Date(task.due_date).toDateString())
       taskStart.setHours(0, 0, 0, 0)
       taskEnd.setHours(0, 0, 0, 0)
 
-      // Collect rows used by already-assigned tasks whose date range overlaps this one
       const usedRows = new Set<number>()
       sorted.forEach(other => {
         if (other.id === task.id || !map.has(other.id)) return
@@ -227,28 +245,35 @@ export default function CalendarPage() {
         const otherEnd   = new Date(new Date(other.due_date).toDateString())
         otherStart.setHours(0, 0, 0, 0)
         otherEnd.setHours(0, 0, 0, 0)
-        // Overlap: [taskStart, taskEnd] ∩ [otherStart, otherEnd] is non-empty
         if (taskStart <= otherEnd && taskEnd >= otherStart) {
           usedRows.add(map.get(other.id)!)
         }
       })
 
-      // Pick the lowest available row among 1–5
       let row = 1
       while (usedRows.has(row) && row <= 5) row++
-      map.set(task.id, row) // row may exceed 5 for >5 overlapping tasks; those will fall into "+N more"
+      map.set(task.id, row)
     })
 
     return map
   }, [cards])
 
-  // Assign row numbers to tasks for consistent positioning across days
   const getTaskRow = (card: any) => {
     if (!card.due_date) return 1
     return taskRowMap.get(card.id) || 1
   }
 
-  // Format date for display
+  // Quick Statistics for Calendar Dashboard
+  const stats = useMemo(() => {
+    const totalScheduled = cards.filter(c => c.due_date).length
+    const completed = cards.filter(c => c.due_date && c.column_status === 'done').length
+    const highPriority = cards.filter(c => c.due_date && c.priority === 'high' && c.column_status !== 'done').length
+    const pending = cards.filter(c => c.due_date && c.column_status !== 'done').length
+
+    return { totalScheduled, completed, highPriority, pending }
+  }, [cards])
+
+  // Format due date label
   const formatDueDate = (dueDate: string | null) => {
     if (!dueDate) return null
     const date = new Date(dueDate)
@@ -307,60 +332,154 @@ export default function CalendarPage() {
 
   if (isLoading) {
     return (
-      <div className="screen active calendar-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: 'var(--muted)' }}>Loading calendar...</div>
+      <div className="screen active calendar-page calendar-loading-screen">
+        <div className="calendar-spinner-wrapper">
+          <div className="calendar-spinner" />
+          <span>Loading your schedule...</span>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="screen active calendar-page">
-      {/* Header */}
+      {/* Calendar Top Header */}
       <div className="calendar-header">
         <div className="calendar-header-title">
-          <h2>Calendar</h2>
-          <p>View and manage your tasks by due date</p>
+          <h2>Schedule & Calendar</h2>
+          <p>Organize, track deadlines, and accomplish your daily milestones</p>
         </div>
-        <div className="calendar-nav">
-          <button 
-            onClick={goToToday}
-            className="btn btn-outline"
-          >
-            Today
-          </button>
-          <button 
-            onClick={goToPreviousMonth}
-            className="btn btn-light"
-          >
-            ←
-          </button>
-          <span className="calendar-nav-month">
-            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-          </span>
-          <button 
-            onClick={goToNextMonth}
-            className="btn btn-light"
-          >
-            →
-          </button>
-          <button 
-            type="button"
-            className="new-task-btn"
-            onClick={() => setShowAddTask(!showAddTask)}
-            style={{ marginLeft: '12px' }}
-          >
-            <svg viewBox="0 0 24 24" fill="none">
-              <line x1="12" y1="5" x2="12" y2="19" strokeWidth="2" strokeLinecap="round"/>
-              <line x1="5" y1="12" x2="19" y2="12" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            New Task
-          </button>
+
+        <div className="calendar-header-actions">
+          {/* View Switcher: Month vs Week */}
+          <div className="calendar-view-switcher">
+            <button
+              type="button"
+              className={`view-tab ${viewMode === 'month' ? 'active' : ''}`}
+              onClick={() => setViewMode('month')}
+            >
+              Month
+            </button>
+            <button
+              type="button"
+              className={`view-tab ${viewMode === 'week' ? 'active' : ''}`}
+              onClick={() => setViewMode('week')}
+            >
+              Week
+            </button>
+          </div>
+
+          {/* Month / Week Navigation */}
+          <div className="calendar-nav">
+            <button 
+              onClick={goToToday}
+              className="btn btn-outline btn-today"
+            >
+              Today
+            </button>
+            <div className="calendar-nav-controls">
+              <button 
+                onClick={goToPrevious}
+                className="btn btn-icon"
+                title="Previous"
+                aria-label="Previous Period"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+              <span className="calendar-nav-month">
+                {viewMode === 'month' 
+                  ? currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })
+                  : `Week of ${calendarCells[0]?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                }
+              </span>
+              <button 
+                onClick={goToNext}
+                className="btn btn-icon"
+                title="Next"
+                aria-label="Next Period"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            </div>
+
+            <button 
+              type="button"
+              className="new-task-btn"
+              onClick={() => setShowAddTask(!showAddTask)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              New Task
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Calendar Grid */}
-      <div className="calendar-card">
-        {/* Day Headers */}
+      {/* Stats Overview Bar */}
+      <div className="calendar-stats-bar">
+        <div className="stat-card">
+          <div className="stat-icon scheduled">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <div className="stat-info">
+            <span className="stat-value">{stats.totalScheduled}</span>
+            <span className="stat-label">Scheduled Tasks</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div className="stat-info">
+            <span className="stat-value">{stats.pending}</span>
+            <span className="stat-label">Pending</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon priority">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          </div>
+          <div className="stat-info">
+            <span className="stat-value">{stats.highPriority}</span>
+            <span className="stat-label">High Priority</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon completed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div className="stat-info">
+            <span className="stat-value">{stats.completed}</span>
+            <span className="stat-label">Completed</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Calendar Card */}
+      <div className={`calendar-card mode-${viewMode}`}>
+        {/* Weekday Headers */}
         <div className="calendar-weekdays">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
             <div key={day} className="calendar-weekday">
@@ -369,7 +488,7 @@ export default function CalendarPage() {
           ))}
         </div>
 
-        {/* Calendar Cells */}
+        {/* Calendar Grid Cells */}
         <div className="calendar-grid">
           {calendarCells.map((cell, idx) => {
             if (!cell) return (
@@ -389,36 +508,47 @@ export default function CalendarPage() {
                   setIsPopupOpen(true)
                 }}
               >
-                <div className="calendar-cell-date">
-                  {cell.getDate()}
+                <div className="calendar-cell-header">
+                  <span className={`calendar-cell-date ${isToday ? 'is-today-badge' : ''}`}>
+                    {cell.getDate()}
+                  </span>
+                  {dayTasks.length > 0 && (
+                    <span className="calendar-cell-count" title={`${dayTasks.length} task(s)`}>
+                      {dayTasks.length}
+                    </span>
+                  )}
                 </div>
+
                 <div className="calendar-cell-tasks">
                   {Array.from({ length: 5 }).map((_, rowIndex) => {
                     const task = dayTasks.find(t => getTaskRow(t) === rowIndex + 1)
                     if (!task) return null
                     
                     const position = getTaskPosition(task, cell)
-                    const isDueDate = position === 'end'
+                    const isDone = task.column_status === 'done'
                     
-                    // Format due time
                     const formatDueTime = (dueDate: string | null) => {
                       if (!dueDate) return ''
                       const date = new Date(dueDate)
                       return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
                     }
-                    
+
                     return (
                       <div
                         key={task.id}
-                        className={`calendar-task ${task.column_status === 'done' ? 'done' : ''} ${getPriorityClass(task.priority)} task-${position}`}
-                        style={{ background: task.color || '#93c5fd', gridRowStart: rowIndex + 1 }}
+                        className={`calendar-task ${isDone ? 'done' : ''} ${getPriorityClass(task.priority)} task-${position}`}
+                        style={{ background: task.color || 'var(--primary-tint, #eff6ff)', gridRowStart: rowIndex + 1 }}
                         onClick={(e) => {
                           e.stopPropagation()
                           toggleTask(task.id)
                         }}
-                        title={task.title}
+                        title={`${task.title} ${isDone ? '(Completed)' : ''}`}
                       >
-                        {position === 'start' || position === 'single' ? task.title : position === 'end' ? formatDueTime(task.due_date) : ''}
+                        {position === 'start' || position === 'single' ? (
+                          <span className="task-pill-text">{task.title}</span>
+                        ) : position === 'end' ? (
+                          <span className="task-pill-time">{formatDueTime(task.due_date)}</span>
+                        ) : null}
                       </div>
                     )
                   })}
@@ -436,7 +566,16 @@ export default function CalendarPage() {
 
       {/* Upcoming Tasks Section */}
       <div className="upcoming-section">
-        <h3>Upcoming Tasks</h3>
+        <div className="upcoming-section-header">
+          <div>
+            <h3>Upcoming Deadlines</h3>
+            <p>Priority items scheduled in your queue</p>
+          </div>
+          <span className="upcoming-count-badge">
+            {cards.filter(c => c.due_date && c.column_status !== 'done').length} Active
+          </span>
+        </div>
+
         <div className="upcoming-grid">
           {cards
             .filter(card => card.due_date && (card.column_status === 'todo' || card.column_status === 'review'))
@@ -445,28 +584,50 @@ export default function CalendarPage() {
             .map(card => (
               <div
                 key={card.id}
-                className={`upcoming-card ${getPriorityClass(card.priority)}`}
-                style={{ background: card.color || 'var(--surface)' }}
+                className="kcard"
+                style={{
+                  background: card.color
+                    ? `linear-gradient(to right, ${card.color}99 0%, var(--surface) 100%)`
+                    : undefined,
+                  borderLeft: card.color ? `4px solid ${card.color}` : undefined,
+                  cursor: 'pointer'
+                }}
                 onClick={() => toggleTask(card.id)}
               >
-                <div className="upcoming-card-header">
-                  <span className="upcoming-card-date">
-                    {formatDueDate(card.due_date)}
-                  </span>
-                  {card.priority && (
-                    <span className={`upcoming-card-priority ${getPriorityClass(card.priority)}`}>
-                      {card.priority}
+                <div className="kcard-header">
+                  {card.priority ? (
+                    <div className={`kcard-importance ${card.priority}`}>
+                      {card.priority.charAt(0).toUpperCase() + card.priority.slice(1)}
+                    </div>
+                  ) : <div />}
+                  {card.labels && card.labels[0] && (
+                    <span className="tag tag-work" style={{ fontSize: '10.5px', padding: '2px 7px' }}>
+                      {card.labels[0].name}
                     </span>
                   )}
                 </div>
-                <div className="upcoming-card-title">
-                  {card.title}
-                </div>
+
+                <div className="kcard-title">{card.title}</div>
+
                 {card.description && (
-                  <div className="upcoming-card-description">
-                    {card.description}
-                  </div>
+                  <div className="kcard-description">{card.description}</div>
                 )}
+
+                <div className="kcard-footer">
+                  {formatDueDate(card.due_date) ? (
+                    <div className="kcard-due">
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/>
+                        <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="1.8"/>
+                      </svg>
+                      {formatDueDate(card.due_date)}
+                    </div>
+                  ) : <div />}
+
+                  {card.assignees && card.assignees.length > 0 && card.assignees[0]?.initials ? (
+                    <span className="avatar" style={{ background: 'var(--primary)' }}>{card.assignees[0].initials}</span>
+                  ) : null}
+                </div>
               </div>
             ))}
         </div>
@@ -477,52 +638,127 @@ export default function CalendarPage() {
         <div className="calendar-popup-overlay" onClick={() => setIsPopupOpen(false)}>
           <div className="calendar-popup" onClick={(e) => e.stopPropagation()}>
             <div className="calendar-popup-header">
-              <h3>
-                {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-              </h3>
+              <div>
+                <h3>
+                  {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </h3>
+                <span className="calendar-popup-sub">
+                  {getTasksForDate(selectedDate).length} task(s) scheduled
+                </span>
+              </div>
               <button 
+                type="button"
                 className="calendar-popup-close"
                 onClick={() => setIsPopupOpen(false)}
+                aria-label="Close"
               >
                 ×
               </button>
             </div>
+
             <div className="calendar-popup-content">
               {getTasksForDate(selectedDate).length === 0 ? (
                 <div className="calendar-popup-empty">
-                  No tasks for this day
+                  <div className="empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                  </div>
+                  <p>No tasks scheduled for this date</p>
+                  <button 
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => {
+                      setIsPopupOpen(false)
+                      setShowAddTask(true)
+                    }}
+                  >
+                    + Add Task
+                  </button>
                 </div>
               ) : (
                 <div className="calendar-popup-tasks">
                   {getTasksForDate(selectedDate).map(task => (
                     <div
                       key={task.id}
-                      className={`calendar-popup-task ${task.column_status === 'done' ? 'done' : ''} ${getPriorityClass(task.priority)}`}
-                      style={{ background: task.color || '#93c5fd' }}
+                      className={`kcard ${task.column_status === 'done' ? 'done' : ''}`}
+                      style={{
+                        background: task.color
+                          ? `linear-gradient(to right, ${task.color}99 0%, var(--surface) 100%)`
+                          : undefined,
+                        borderLeft: task.color ? `4px solid ${task.color}` : undefined,
+                        cursor: 'pointer',
+                        opacity: task.column_status === 'done' ? 0.6 : 1,
+                      }}
                       onClick={() => toggleTask(task.id)}
                     >
-                      <div className="calendar-popup-task-header">
-                        <span className="calendar-popup-task-title">{task.title}</span>
-                        {task.priority && (
-                          <span className={`calendar-popup-task-priority ${getPriorityClass(task.priority)}`}>
-                            {task.priority}
+                      <div className="kcard-header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div className="calendar-popup-checkbox" style={{ marginTop: 0 }}>
+                            {task.column_status === 'done' ? (
+                              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18, color: 'var(--primary, #d97706)' }}>
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                              </svg>
+                            ) : (
+                              <div className="checkbox-ring" style={{ width: 16, height: 16 }} />
+                            )}
+                          </div>
+                          {task.priority ? (
+                            <div className={`kcard-importance ${task.priority}`}>
+                              {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                            </div>
+                          ) : null}
+                        </div>
+                        {task.labels && task.labels[0] && (
+                          <span className="tag tag-work" style={{ fontSize: '10.5px', padding: '2px 7px' }}>
+                            {task.labels[0].name}
                           </span>
                         )}
                       </div>
+
+                      <div className="kcard-title" style={{ textDecoration: task.column_status === 'done' ? 'line-through' : 'none' }}>
+                        {task.title}
+                      </div>
+
                       {task.description && (
-                        <div className="calendar-popup-task-description">
-                          {task.description}
-                        </div>
+                        <div className="kcard-description">{task.description}</div>
                       )}
-                      {task.due_date && (
-                        <div className="calendar-popup-task-due">
-                          Due: {formatDueDate(task.due_date)} at {new Date(task.due_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                        </div>
-                      )}
+
+                      <div className="kcard-footer">
+                        {formatDueDate(task.due_date) ? (
+                          <div className="kcard-due">
+                            <svg viewBox="0 0 24 24" fill="none">
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/>
+                              <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="1.8"/>
+                            </svg>
+                            {formatDueDate(task.due_date)}
+                          </div>
+                        ) : <div />}
+
+                        {task.assignees && task.assignees.length > 0 && task.assignees[0]?.initials ? (
+                          <span className="avatar" style={{ background: 'var(--primary)' }}>{task.assignees[0].initials}</span>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="calendar-popup-footer">
+              <button 
+                type="button" 
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setIsPopupOpen(false)
+                  setShowAddTask(true)
+                }}
+              >
+                + New Task
+              </button>
             </div>
           </div>
         </div>

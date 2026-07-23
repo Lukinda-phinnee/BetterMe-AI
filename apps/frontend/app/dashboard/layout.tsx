@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { DashboardContext } from './context'
 import { AIChat } from '@/components/ai-chat'
 import AddTaskModal from '@/components/add-task-modal'
@@ -13,9 +13,27 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
-  const [activeScreen, setActiveScreen] = useState('dashboard')
   const [mode, setMode] = useState<'personal' | 'team'>('personal')
+
+  // Derive active screen directly from current route URL so page refresh stays on current screen
+  const getActiveScreenFromPath = (path: string) => {
+    if (path.includes('/dashboard/board')) return 'board'
+    if (path.includes('/dashboard/calendar')) return 'calendar'
+    if (path.includes('/dashboard/list')) return 'list'
+    if (path.includes('/dashboard/timeline')) return 'timeline'
+    if (path.includes('/dashboard/goals')) return 'goals'
+    if (path.includes('/dashboard/habit')) return 'habits'
+    if (path.includes('/dashboard/reflection')) return 'reflection'
+    if (path.includes('/dashboard/team')) return 'team'
+    if (path.includes('/dashboard/projects')) return 'projects'
+    if (path.includes('/dashboard/settings')) return 'settings'
+    return 'dashboard'
+  }
+
+  const activeScreen = getActiveScreenFromPath(pathname)
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
@@ -92,7 +110,6 @@ export default function DashboardLayout({
   }
 
   const handleScreenChange = (screen: string) => {
-    setActiveScreen(screen)
     if (screen === 'board') {
       router.push('/dashboard/board')
     } else if (screen === 'calendar') {
@@ -111,6 +128,8 @@ export default function DashboardLayout({
       router.push('/dashboard/team')
     } else if (screen === 'projects') {
       router.push('/dashboard/projects')
+    } else if (screen === 'settings') {
+      router.push('/dashboard/settings')
     } else {
       router.push('/dashboard')
     }
@@ -180,16 +199,17 @@ export default function DashboardLayout({
         <div className="brand">
           <div className="brand-mark">
             <svg viewBox="0 0 24 24" fill="none">
-              <path d="M4 15c3-1 4-6 8-6s5 5 8 6" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M4 15c3-1 4-6 8-6s5 5 8 6" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/>
             </svg>
           </div>
           <span className="brand-name">BetterMe</span>
+          <span className="brand-badge">v2.0</span>
         </div>
 
         <div className="nav-group">
 
           {/* ── Core ───────────────────────── */}
-          <span style={navLabelStyle}>Core</span>
+          <span className="nav-label">Core</span>
 
           <button
             className={`nav-item ${activeScreen === 'dashboard' ? 'active' : ''}`}
@@ -202,17 +222,6 @@ export default function DashboardLayout({
               <rect x="3" y="16" width="7" height="5" rx="1.5"/>
             </svg>
             My Day
-          </button>
-
-          <button
-            className={`nav-item ${activeScreen === 'inbox' ? 'active' : ''}`}
-            onClick={() => handleScreenChange('inbox')}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
-              <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>
-            </svg>
-            Inbox
           </button>
 
           <button
@@ -240,7 +249,7 @@ export default function DashboardLayout({
           </button>
 
           {/* ── Growth ─────────────────────── */}
-          <span style={navLabelStyle}>Growth</span>
+          <span className="nav-label">Growth</span>
 
           <button
             className={`nav-item ${activeScreen === 'goals' ? 'active' : ''}`}
@@ -277,23 +286,10 @@ export default function DashboardLayout({
             Weekly Review
           </button>
 
-          <button
-            className={`nav-item ${activeScreen === 'analytics' ? 'active' : ''}`}
-            onClick={() => handleScreenChange('analytics')}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <line x1="18" y1="20" x2="18" y2="10"/>
-              <line x1="12" y1="20" x2="12" y2="4"/>
-              <line x1="6" y1="20" x2="6" y2="14"/>
-              <line x1="2" y1="20" x2="22" y2="20"/>
-            </svg>
-            Analytics
-          </button>
-
           {/* ── Workspace ──────────────────── */}
           {mode === 'team' && (
             <>
-              <span style={navLabelStyle}>Workspace</span>
+              <span className="nav-label">Workspace</span>
               <button
                 className={`nav-item ${activeScreen === 'team' ? 'active' : ''}`}
                 onClick={() => handleScreenChange('team')}
@@ -306,8 +302,8 @@ export default function DashboardLayout({
                 Team Members
               </button>
               
-              <div style={{ marginTop: '16px' }}>
-                <span style={navLabelStyle}>Projects</span>
+              <div style={{ marginTop: '12px' }}>
+                <span className="nav-label">Projects</span>
                 <button
                   className={`nav-item ${activeScreen === 'projects' ? 'active' : ''}`}
                   onClick={() => handleScreenChange('projects')}
@@ -317,10 +313,10 @@ export default function DashboardLayout({
                   </svg>
                   All Projects
                 </button>
-                <div style={{ paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--muted)', cursor: 'pointer', padding: '6px 12px', display: 'block', borderRadius: '6px' }} className="project-item"># Marketing</span>
-                  <span style={{ fontSize: '13px', color: 'var(--muted)', cursor: 'pointer', padding: '6px 12px', display: 'block', borderRadius: '6px' }} className="project-item"># Engineering</span>
-                  <span style={{ fontSize: '13px', color: 'var(--muted)', cursor: 'pointer', padding: '6px 12px', display: 'block', borderRadius: '6px' }} className="project-item"># Product Design</span>
+                <div style={{ paddingLeft: '12px', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--muted)', cursor: 'pointer', padding: '6px 10px', display: 'block', borderRadius: '6px' }} className="project-item"># Marketing</span>
+                  <span style={{ fontSize: '13px', color: 'var(--muted)', cursor: 'pointer', padding: '6px 10px', display: 'block', borderRadius: '6px' }} className="project-item"># Engineering</span>
+                  <span style={{ fontSize: '13px', color: 'var(--muted)', cursor: 'pointer', padding: '6px 10px', display: 'block', borderRadius: '6px' }} className="project-item"># Product Design</span>
                 </div>
               </div>
             </>
@@ -329,22 +325,32 @@ export default function DashboardLayout({
         </div>
 
         <div className="pro-upgrade-card">
-          <div className="pro-upgrade-title">Upgrade to PRO</div>
-          <div className="pro-upgrade-desc">for more features</div>
-          <button className="pro-upgrade-btn">Upgrade</button>
+          <div className="pro-upgrade-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Pro Plan
+          </div>
+          <div className="pro-upgrade-title">BetterMe Pro</div>
+          <div className="pro-upgrade-desc">Unlock AI insights, unlimited goals & team collaboration.</div>
+          <button className="pro-upgrade-btn">Upgrade Now</button>
         </div>
 
         <div className="sidebar-footer">
-          <div className="switcher">
+          <div className="switcher" role="tablist">
             <button
               className={mode === 'personal' ? 'active' : ''}
               onClick={() => handleModeChange('personal')}
+              role="tab"
+              aria-selected={mode === 'personal'}
             >
               Personal
             </button>
             <button
               className={mode === 'team' ? 'active' : ''}
               onClick={() => handleModeChange('team')}
+              role="tab"
+              aria-selected={mode === 'team'}
             >
               Team
             </button>

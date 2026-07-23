@@ -1239,4 +1239,69 @@ router.post('/parse-habit', async (req, res) => {
   }
 });
 
+// POST /api/ai/weekly-insights - Generate AI-powered insights for weekly review
+router.post('/weekly-insights', async (req, res) => {
+  try {
+    const { userId, weeklyData, reflections } = req.body;
+    const apiKey = process.env.GROQ_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(500).json({ error: 'AI service not configured' });
+    }
+
+    const systemPrompt = `You are a behavior-change coach specializing in weekly reflections. Your role is to provide brief, actionable insights based on the user's weekly data and reflection responses.
+
+Guidelines:
+- Keep responses under 150 words
+- Focus on patterns, not judgments
+- Suggest one specific, evidence-based adjustment
+- Use autonomy-supportive language (never guilt or shame)
+- Reference the data provided (completion rates, streaks, categories)
+- If the user identifies a pattern, validate it and suggest a concrete next step
+
+The user's weekly data:
+- Tasks completed: ${weeklyData?.tasksCompleted}/${weeklyData?.tasksTotal}
+- Habits completed: ${weeklyData?.habitsCompleted}/${weeklyData?.habitsTotal}
+- Current streak: ${weeklyData?.streakDays} days
+- Category breakdown: ${JSON.stringify(weeklyData?.categoryBreakdown)}
+
+The user's reflections:
+- What worked well: ${reflections?.workedWell || 'Not provided'}
+- What didn't work: ${reflections?.didntWork || 'Not provided'}
+- Patterns noticed: ${reflections?.patterns || 'Not provided'}
+
+Provide 2-3 concise insights that help the user turn their reflection into action.`;
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Based on my week above, what insights can help me improve next week?' },
+        ],
+        temperature: 0.7,
+        max_tokens: 300,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Groq API returned error: ${errorText}`);
+    }
+
+    const data = await response.json() as { choices: Array<{ message: { content: string } }> };
+    const insights = data.choices[0].message.content.trim();
+
+    res.json({ insights });
+  } catch (error: any) {
+    console.error('Weekly insights error:', error);
+    res.status(502).json({ error: 'Failed to generate weekly insights' });
+  }
+});
+
 export default router;

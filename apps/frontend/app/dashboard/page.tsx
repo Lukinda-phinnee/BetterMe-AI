@@ -4,6 +4,47 @@ import { useState, useEffect } from 'react'
 import { useDashboard } from './context'
 import { AIGoalDecomposer } from '../../components/ai-goal-decomposer'
 
+// ─── Today's schedule badge helpers ─────────────────────────────────────────
+// The badge reflects the column the task currently sits in on the board,
+// tinted with the task's own colour.
+const COLUMN_FALLBACK_COLORS: Record<string, string> = {
+  'todo': '#93c5fd',
+  'in-progress': '#fcd34d',
+  'review': '#f9a8d4',
+  'done': '#86efac'
+}
+
+const getColumnLabel = (columnStatus: string): string => {
+  switch (columnStatus) {
+    case 'todo': return 'To do'
+    case 'in-progress': return 'In progress'
+    case 'review': return 'Review'
+    case 'done': return 'Done'
+    default: return 'To do'
+  }
+}
+
+// hex → rgba with the given alpha (falls back to the primary indigo)
+const hexToRgba = (hex: string, alpha: number): string => {
+  const h = (hex || '').replace('#', '')
+  if (h.length < 6) return `rgba(99, 102, 241, ${alpha})`
+  const r = parseInt(h.substring(0, 2), 16)
+  const g = parseInt(h.substring(2, 4), 16)
+  const b = parseInt(h.substring(4, 6), 16)
+  if ([r, g, b].some(Number.isNaN)) return `rgba(99, 102, 241, ${alpha})`
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+// darken a hex colour by `percent` for readable badge text
+const shade = (hex: string, percent: number): string => {
+  const h = (hex || '').replace('#', '')
+  if (h.length < 6) return '#4f46e5'
+  const r = Math.round(parseInt(h.substring(0, 2), 16) * (1 - percent))
+  const g = Math.round(parseInt(h.substring(2, 4), 16) * (1 - percent))
+  const b = Math.round(parseInt(h.substring(4, 6), 16) * (1 - percent))
+  return `rgb(${r}, ${g}, ${b})`
+}
+
 export default function DashboardPage() {
   const { showReviewColumn, setShowReviewColumn, showAddTask, setShowAddTask, authToken, setBoardId: setContextBoardId, setRefreshDataFn } = useDashboard()
   const [cards, setCards] = useState<any[]>([])
@@ -29,7 +70,15 @@ export default function DashboardPage() {
         })
 
         if (!workspacesResponse.ok) {
-          throw new Error('Failed to fetch workspaces')
+          if (workspacesResponse.status === 401) {
+            // Token is invalid, clear it and let user re-authenticate
+            localStorage.removeItem('authToken')
+            setAuthToken(null)
+            return
+          }
+          const errorData = await workspacesResponse.json().catch(() => ({}))
+          console.error('Workspaces fetch failed:', workspacesResponse.status, errorData)
+          throw new Error(`Failed to fetch workspaces: ${workspacesResponse.status}`)
         }
 
         const workspaces = await workspacesResponse.json()
@@ -233,41 +282,86 @@ export default function DashboardPage() {
 
   // Get today's schedule from real data
   const getTodaySchedule = () => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    
-    // Filter cards due today
-    const todayCards = cards.filter(card => {
-      if (!card.due_date) return false
+    const now = new Date()
+    const todayStart = new Date(now)
+    todayStart.setHours(0, 0, 0, 0)
+    const todayEnd = new Date(now)
+    todayEnd.setHours(23, 59, 59, 999)
+
+    // Include a card in today's schedule if ALL of these are true:
+    //   • it is not already done
+    //   • AND one of:
+    //       a) due_date falls on today
+    //       b) due_date is in the past (overdue — still needs attention)
+    //       c) due_date is in the future AND the card was created on or before today
+    //          (task is "in progress" — show it until the due date passes)
+    //       d) no due_date but created_at falls on today
+    const activeCards = cards.filter(card => {
+      if (card.column_status === 'done') return false
+
+      const createdAt = card.created_at ? new Date(card.created_at) : null
+      const createdToday = createdAt ? createdAt >= todayStart && createdAt <= todayEnd : false
+
+      if (!card.due_date) {
+        // Only show no-due-date tasks if they were created today
+        return createdToday
+      }
+
       const dueDate = new Date(card.due_date)
-      dueDate.setHours(0, 0, 0, 0)
-      return dueDate.getTime() === today.getTime()
+      const dueDateDay = new Date(dueDate)
+      dueDateDay.setHours(0, 0, 0, 0)
+
+      const isDueToday = dueDateDay.getTime() === todayStart.getTime()
+      const isOverdue  = dueDate < todayStart && (todayStart.getTime() - dueDateDay.getTime()) <= 3 * 24 * 60 * 60 * 1000  // within last 3 days
+      const isFutureDue = dueDate > todayEnd    // due date is in the future
+      const startedOnOrBeforeToday = createdAt ? createdAt <= todayEnd : true
+
+      return isDueToday || isOverdue || (isFutureDue && startedOnOrBeforeToday)
     })
-    
-    // Sort by due time
-    const sortedCards = todayCards.sort((a, b) => {
+
+    // Sort: overdue first → due today → future due (soonest first) → no due date
+    const sorted = activeCards.sort((a, b) => {
+      const aHasDue = !!a.due_date
+      const bHasDue = !!b.due_date
+
+      if (!aHasDue && !bHasDue) return 0
+      if (!aHasDue) return 1
+      if (!bHasDue) return -1
+
       return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
     })
-    
-    // Convert to schedule format
-    const colors = ['#e0f2fe', '#fef3c7', '#d1fae5', '#ede9fe', '#fce7f3', '#e0f2fe']
-    return sortedCards.map((card, index) => {
-      const dueDate = new Date(card.due_date)
-      const startTime = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-      
-      // Estimate duration (could be enhanced with actual duration data)
-      const endTime = new Date(dueDate.getTime() + 60 * 60 * 1000) // Add 1 hour default
-      const endTimeStr = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-      
+
+    const colors = ['#e0f2fe', '#fef3c7', '#d1fae5', '#ede9fe', '#fce7f3']
+
+    return sorted.map((card, index) => {
+      // Badge reflects the column the task is in on the board (To do / In progress / Review),
+      // and is tinted with the task's own colour so it matches the board card.
+      const status = getColumnLabel(card.column_status)
+      const statusColor = card.color || COLUMN_FALLBACK_COLORS[card.column_status] || '#93c5fd'
+
+      let timeLabel = 'No time set'
+      let durationLabel = ''
+
+      if (card.due_date) {
+        const dueDate = new Date(card.due_date)
+        timeLabel = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+        const endTime = new Date(dueDate.getTime() + 60 * 60 * 1000)
+        const endTimeStr = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+        durationLabel = `${timeLabel} to ${endTimeStr}`
+      } else {
+        const createdAt = new Date(card.created_at)
+        timeLabel = createdAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+        durationLabel = 'All day'
+      }
+
       return {
-        time: startTime,
+        time: timeLabel,
         name: card.title,
-        duration: `${startTime} to ${endTimeStr}`,
+        duration: durationLabel,
         color: colors[index % colors.length],
-        cardId: card.id
+        cardId: card.id,
+        status,
+        statusColor,
       }
     })
   }
@@ -343,12 +437,19 @@ export default function DashboardPage() {
         <div className="dash-grid">
           <div>
             <div className="card coach-card">
-              <div className="coach-eyebrow">Coach</div>
+              <div className="coach-eyebrow">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/>
+                </svg>
+                AI Daily Coach
+              </div>
               {coachLoading ? (
                 <div className="coach-msg">Analyzing your progress...</div>
               ) : coachMessage ? (
                 <div className="coach-msg">{coachMessage}</div>
-              ) : null}
+              ) : (
+                <div className="coach-msg">You're making great progress! Stay focused on your top priorities today.</div>
+              )}
               <div className="coach-actions">
                 <button 
                   className="btn btn-solid"
@@ -363,6 +464,9 @@ export default function DashboardPage() {
                     }
                   }}
                 >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 6h16M4 12h10M4 18h6"/>
+                  </svg>
                   Break it down
                 </button>
                 <button 
@@ -375,7 +479,7 @@ export default function DashboardPage() {
             </div>
 
             {showGoalDecomposer && selectedGoal && (
-              <div className="card" style={{marginTop: 8}}>
+              <div className="card" style={{marginTop: 14}}>
                 <div className="coach-eyebrow">Goal Decomposition</div>
                 <div style={{padding: 16}}>
                   <p style={{marginBottom: 12, fontSize: 14}}>Breaking down: <strong>{selectedGoal}</strong></p>
@@ -385,12 +489,11 @@ export default function DashboardPage() {
             )}
 
             {/* Column Cards */}
-            <div className={`myday-cols ${showReviewColumn ? 'show-review' : ''}`} style={{marginTop: 8}}>
+            <div className={`myday-cols ${showReviewColumn ? 'show-review' : ''}`} style={{marginTop: 14}}>
               {columnData.map((col) => (
                 <div 
                   key={col.id} 
                   className={`myday-col-card ${col.id === 'review' && !showReviewColumn ? 'hidden' : ''} ${col.id}`}
-                  style={{borderColor: col.id === 'todo' ? 'transparent' : col.color}}
                 >
                   <div className="myday-col-icon">
                     {col.icon === 'checklist' && (
@@ -426,13 +529,17 @@ export default function DashboardPage() {
             </div>
 
             {/* Nearest To-Do Section */}
-            <div style={{marginTop: 8}}>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
-                <h2 style={{fontSize: 16, fontWeight: 600, margin: 0}}>Your nearest to-do</h2>
-                <button style={{background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 500, cursor: 'pointer'}}>
-                  See all to-do →
+            <div style={{marginTop: 16}}>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+                <h2 style={{fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--ink)'}}>Your nearest to-do</h2>
+                <button 
+                  onClick={() => setShowAddTask(true)}
+                  style={{background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4}}
+                >
+                  See all tasks →
                 </button>
               </div>
+
               <div className="nearest-tasks-row">
                 {sortedTasks.slice(0, 3).map(task => (
                   <div key={task.id} className="nearest-task-card">
@@ -461,7 +568,8 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-              <div className="quick-add" style={{marginTop: 8}}>
+
+              <div style={{marginTop: 12}}>
                 <button 
                   type="button"
                   className="quick-add-trigger"
@@ -507,19 +615,76 @@ export default function DashboardPage() {
             <div className="card">
               <div className="section-title">Today's schedule</div>
               <div className="schedule-list">
-                {currentItems.map((item, index) => (
-                  <div key={index} className="schedule-item">
-                    <div className="schedule-time">{item.time}</div>
-                    <div className="schedule-activity-card" style={{backgroundColor: item.color}}>
-                      <div className="schedule-activity-name">{item.name}</div>
-                      <div className="schedule-activity-duration">{item.duration}</div>
-                    </div>
+                {currentItems.length === 0 && (
+                  <div className="schedule-empty">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <span>No active tasks for today</span>
                   </div>
-                ))}
+                )}
+                {currentItems.map((item, index) => {
+                  const status: string = (item as any).status ?? ''
+                  const statusColor: string = (item as any).statusColor || '#93c5fd'
+                  // split time into value + am/pm for the two-line bubble
+                  const timeParts = item.time.match(/^([\d:]+)\s*(AM|PM)?$/i)
+                  const timeValue = timeParts ? timeParts[1] : item.time
+                  const timeSuffix = timeParts?.[2] ?? ''
+
+                  // badge colour is derived from the task's own colour
+                  const badgeBg = hexToRgba(statusColor, 0.12)
+                  const badgeBorder = hexToRgba(statusColor, 0.3)
+                  const badgeText = shade(statusColor, 0.35)
+
+                  return (
+                    <div key={index} className="schedule-item">
+                      {/* Circular time bubble */}
+                      <div className="schedule-time">
+                        <div
+                          className="schedule-time-bubble"
+                          style={{
+                            background: badgeBg,
+                            borderColor: statusColor,
+                            color: badgeText,
+                            boxShadow: `0 0 0 4px var(--bg)`,
+                          }}
+                        >
+                          <span>{timeValue}<br/>{timeSuffix}</span>
+                        </div>
+                      </div>
+
+                      {/* Task card — accent stripe uses the task colour via CSS var */}
+                      <div
+                        className="schedule-activity-card"
+                        style={{ ['--task-color' as any]: statusColor }}
+                      >
+                        <div className="schedule-card-top">
+                          <div className="schedule-activity-name">{item.name}</div>
+                          {status && (
+                            <span
+                              className="schedule-status-badge"
+                              style={{
+                                background: badgeBg,
+                                color: badgeText,
+                                border: `1px solid ${badgeBorder}`,
+                              }}
+                            >
+                              {status}
+                            </span>
+                          )}
+                        </div>
+                        <div className="schedule-activity-duration">{item.duration}</div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
               {totalPages > 1 && (
                 <div className="schedule-pagination">
-                  <button 
+                  <button
                     className="pagination-btn"
                     onClick={() => setSchedulePage(Math.max(0, schedulePage - 1))}
                     disabled={schedulePage === 0}
@@ -527,7 +692,7 @@ export default function DashboardPage() {
                     ←
                   </button>
                   <span className="pagination-info">{schedulePage + 1} / {totalPages}</span>
-                  <button 
+                  <button
                     className="pagination-btn"
                     onClick={() => setSchedulePage(Math.min(totalPages - 1, schedulePage + 1))}
                     disabled={schedulePage === totalPages - 1}

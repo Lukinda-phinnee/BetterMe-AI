@@ -431,11 +431,16 @@ export default function BoardPage() {
     <div 
       key={card.id} 
       className="kcard" 
-      style={{ backgroundColor: card.color, cursor: 'pointer' }}
+      style={{ 
+        background: card.color
+          ? `linear-gradient(to right, ${card.color}99 0%, var(--surface) 100%)`
+          : undefined,
+        borderLeft: card.color ? `4px solid ${card.color}` : undefined,
+        cursor: 'pointer' 
+      }}
       onClick={() => {
         setSelectedCard(card)
         setIsEditMode(false)
-        // Populate edit form with current card data
         setEditTaskTitle(card.title || '')
         setEditTaskDescription(card.description || '')
         setEditTaskPriority(card.priority || 'medium')
@@ -444,36 +449,51 @@ export default function BoardPage() {
         setEditTaskColumn(card.column_status || 'todo')
       }}
     >
-      {card.priority && (
-        <div className={`kcard-importance ${card.priority}`}>
-          <svg viewBox="0 0 24 24" fill="none">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-          {card.priority.charAt(0).toUpperCase() + card.priority.slice(1)}
-        </div>
-      )}
+      <div className="kcard-header">
+        {card.priority ? (
+          <div className={`kcard-importance ${card.priority}`}>
+            {card.priority.charAt(0).toUpperCase() + card.priority.slice(1)}
+          </div>
+        ) : <div />}
+        {card.labels && card.labels[0] && (
+          <span className="tag tag-work" style={{ fontSize: '10.5px', padding: '2px 7px' }}>
+            {card.labels[0].name}
+          </span>
+        )}
+      </div>
+
       <div className="kcard-title">{card.title}</div>
+
       {card.description && (
         <div className="kcard-description">{card.description}</div>
       )}
+
+      {getSubtaskCount(card.checklist) > 0 && (
+        <div className="kcard-progress">
+          <div className="kcard-progress-label">
+            <span>Progress</span>
+            <span>{getSubtaskCount(card.checklist)} subtasks</span>
+          </div>
+          <div className="kcard-progress-bar">
+            <div className="kcard-progress-fill" style={{ width: '60%' }} />
+          </div>
+        </div>
+      )}
+
       <div className="kcard-footer">
-        {formatDueDate(card.due_date) && (
+        {formatDueDate(card.due_date) ? (
           <div className="kcard-due">
             <svg viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/>
+              <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="1.8"/>
             </svg>
             {formatDueDate(card.due_date)}
           </div>
-        )}
-        {card.assignees && card.assignees.length > 0 && card.assignees[0]?.initials && (
-          <span className="avatar" style={{background: '#7A8C86'}}>{card.assignees[0].initials}</span>
-        )}
-        {getSubtaskCount(card.checklist) > 0 && (
-          <div className="kcard-subtasks">{getSubtaskCount(card.checklist)} subtasks</div>
-        )}
+        ) : <div />}
+
+        {card.assignees && card.assignees.length > 0 && card.assignees[0]?.initials ? (
+          <span className="avatar" style={{ background: 'var(--primary)' }}>{card.assignees[0].initials}</span>
+        ) : null}
       </div>
     </div>
   )
@@ -1407,6 +1427,7 @@ export default function BoardPage() {
                 {selectedCard.priority && (
                   <div className={`task-detail-priority ${selectedCard.priority}`}>
                     <svg viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.2"/>
                       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                     </svg>
                     {selectedCard.priority.charAt(0).toUpperCase() + selectedCard.priority.slice(1)}
@@ -1419,7 +1440,11 @@ export default function BoardPage() {
                   className="btn btn-outline"
                   onClick={() => setIsEditMode(!isEditMode)}
                 >
-                  {isEditMode ? 'Cancel' : 'Edit'}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                  {isEditMode ? 'Cancel' : 'Edit Task'}
                 </button>
                 <button 
                   className="task-detail-close"
@@ -1439,7 +1464,7 @@ export default function BoardPage() {
                 <div className="task-detail-edit-form">
                   <div className="task-detail-section">
                     <h3>
-                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                       </svg>
@@ -1456,12 +1481,11 @@ export default function BoardPage() {
 
                   <div className="task-detail-section">
                     <h3>
-                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <polyline points="14 2 14 8 20 8" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <line x1="16" y1="13" x2="8" y2="13" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <line x1="16" y1="17" x2="8" y2="17" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <polyline points="10 9 9 9 8 9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
                       </svg>
                       Description
                     </h3>
@@ -1476,9 +1500,9 @@ export default function BoardPage() {
 
                   <div className="task-detail-section">
                     <h3>
-                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                        <circle cx="12" cy="12" r="10" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <polyline points="12 6 12 12 16 14" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
                       </svg>
                       Status
                     </h3>
@@ -1496,7 +1520,7 @@ export default function BoardPage() {
 
                   <div className="task-detail-section">
                     <h3>
-                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                       </svg>
                       Priority
@@ -1515,11 +1539,11 @@ export default function BoardPage() {
 
                   <div className="task-detail-section">
                     <h3>
-                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <line x1="16" y1="2" x2="16" y2="6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <line x1="8" y1="2" x2="8" y2="6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <line x1="3" y1="10" x2="21" y2="10" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
                       </svg>
                       Due Date
                     </h3>
@@ -1533,10 +1557,10 @@ export default function BoardPage() {
 
                   <div className="task-detail-section">
                     <h3>
-                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                        <circle cx="12" cy="12" r="10" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
                       </svg>
-                      Color
+                      Color Preset Accent
                     </h3>
                     <div className="color-presets">
                       {lightColors.map((color) => (
@@ -1555,12 +1579,11 @@ export default function BoardPage() {
                   {selectedCard.description && (
                     <div className="task-detail-section">
                       <h3>
-                        <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                          <polyline points="14 2 14 8 20 8" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                          <line x1="16" y1="13" x2="8" y2="13" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                          <line x1="16" y1="17" x2="8" y2="17" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                          <polyline points="10 9 9 9 8 9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                        <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                          <line x1="16" y1="13" x2="8" y2="13"/>
+                          <line x1="16" y1="17" x2="8" y2="17"/>
                         </svg>
                         Description
                       </h3>
@@ -1570,9 +1593,9 @@ export default function BoardPage() {
 
                   <div className="task-detail-section">
                     <h3>
-                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                        <circle cx="12" cy="12" r="10" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <polyline points="12 6 12 12 16 14" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
                       </svg>
                       Status
                     </h3>
@@ -1588,11 +1611,11 @@ export default function BoardPage() {
                   {selectedCard.due_date && (
                     <div className="task-detail-section">
                       <h3>
-                        <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                          <line x1="16" y1="2" x2="16" y2="6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                          <line x1="8" y1="2" x2="8" y2="6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                          <line x1="3" y1="10" x2="21" y2="10" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                        <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                          <line x1="16" y1="2" x2="16" y2="6"/>
+                          <line x1="8" y1="2" x2="8" y2="6"/>
+                          <line x1="3" y1="10" x2="21" y2="10"/>
                         </svg>
                         Due Date
                       </h3>
@@ -1601,56 +1624,56 @@ export default function BoardPage() {
                   )}
 
                   {selectedCard.labels && selectedCard.labels.length > 0 && (
-                <div className="task-detail-section">
-                  <h3>
-                    <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                      <line x1="7" y1="7" x2="7.01" y2="7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                    </svg>
-                    Labels
-                  </h3>
-                  <div className="task-detail-labels">
-                    {selectedCard.labels.map((label: any, index: number) => (
-                      <span key={index} className="label-tag">{label.name || label}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    <div className="task-detail-section">
+                      <h3>
+                        <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                          <line x1="7" y1="7" x2="7.01" y2="7"/>
+                        </svg>
+                        Labels
+                      </h3>
+                      <div className="task-detail-labels">
+                        {selectedCard.labels.map((label: any, index: number) => (
+                          <span key={index} className="label-tag">{label.name || label}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              {selectedCard.assignees && selectedCard.assignees.length > 0 && (
-                <div className="task-detail-section">
-                  <h3>
-                    <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                      <circle cx="9" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                    </svg>
-                    Assignees
-                  </h3>
-                  <div className="task-detail-assignees">
-                    {selectedCard.assignees.map((assignee: any, index: number) => (
-                      <span 
-                        key={index} 
-                        className="avatar" 
-                        title={assignee.name || assignee.initials}
-                        style={{
-                          background: assignee.color || '#7A8C86',
-                        }}
-                      >
-                        {assignee.initials}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+                  {selectedCard.assignees && selectedCard.assignees.length > 0 && (
+                    <div className="task-detail-section">
+                      <h3>
+                        <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                          <circle cx="9" cy="7" r="4"/>
+                          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        Assignees
+                      </h3>
+                      <div className="task-detail-assignees">
+                        {selectedCard.assignees.map((assignee: any, index: number) => (
+                          <span 
+                            key={index} 
+                            className="avatar" 
+                            title={assignee.name || assignee.initials}
+                            style={{
+                              background: assignee.color || 'var(--primary)',
+                            }}
+                          >
+                            {assignee.initials}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {selectedCard.checklist && selectedCard.checklist.length > 0 && (
                     <div className="task-detail-section">
                       <h3>
-                        <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                          <polyline points="9 11 12 14 22 4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                        <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9 11 12 14 22 4"/>
+                          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                         </svg>
                         Subtasks
                       </h3>
@@ -1672,19 +1695,19 @@ export default function BoardPage() {
 
                   <div className="task-detail-section">
                     <h3>
-                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                        <circle cx="12" cy="12" r="10" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                        <circle cx="12" cy="12" r="4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="4"/>
                       </svg>
-                      Card Color
+                      Card Color Accent
                     </h3>
                     <div className="task-detail-color">
                       <div 
                         className="color-preview" 
-                        style={{ backgroundColor: selectedCard.color }}
-                        aria-label={`Color: ${selectedCard.color}`}
+                        style={{ backgroundColor: selectedCard.color || 'var(--primary)' }}
+                        aria-label={`Color: ${selectedCard.color || 'default'}`}
                       />
-                      <span>{selectedCard.color}</span>
+                      <span>{selectedCard.color || 'Default theme'}</span>
                     </div>
                   </div>
                 </>
@@ -1709,12 +1732,20 @@ export default function BoardPage() {
                   </button>
                 </>
               ) : (
-                <button 
-                  className="btn btn-outline"
-                  onClick={() => setSelectedCard(null)}
-                >
-                  Close
-                </button>
+                <>
+                  <button 
+                    className="btn btn-solid"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    Edit Task
+                  </button>
+                  <button 
+                    className="btn btn-outline"
+                    onClick={() => setSelectedCard(null)}
+                  >
+                    Close
+                  </button>
+                </>
               )}
             </div>
           </div>

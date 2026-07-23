@@ -1315,20 +1315,68 @@ export default function HabitPage() {
               {/* Evidence-Based Rules Card */}
               <div className="habit-card habit-science-card">
                 <div className="habit-sc-header">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                  </svg>
-                  <span>4 Laws of Behavior Change</span>
+                  <div className="habit-sc-icon-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '18px', height: '18px' }}>
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                  </div>
+                  <div className="habit-sc-title-group">
+                    <span className="habit-sc-title">4 Laws of Behavior Change</span>
+                    <span className="habit-sc-subtitle">Evidence-based habit formation</span>
+                  </div>
                 </div>
-                <ul className="habit-sc-list">
-                  <li><strong>1. Make it Obvious:</strong> Anchor habits to strong daily triggers.</li>
-                  <li><strong>2. Make it Attractive:</strong> Pair habits with positive rewards.</li>
-                  <li><strong>3. Make it Easy:</strong> Reduce friction down to 2 minutes.</li>
-                  <li><strong>4. Make it Satisfying:</strong> Check off immediately for dopamine release.</li>
-                </ul>
+                <div className="habit-sc-grid">
+                  <div className="habit-sc-item">
+                    <div className="habit-sc-item-icon habit-sc-item-icon--obvious">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="16" />
+                        <line x1="8" y1="12" x2="16" y2="12" />
+                      </svg>
+                    </div>
+                    <div className="habit-sc-item-content">
+                      <span className="habit-sc-item-label">Make it Obvious</span>
+                      <span className="habit-sc-item-desc">Anchor habits to strong daily triggers</span>
+                    </div>
+                  </div>
+                  <div className="habit-sc-item">
+                    <div className="habit-sc-item-icon habit-sc-item-icon--attractive">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                      </svg>
+                    </div>
+                    <div className="habit-sc-item-content">
+                      <span className="habit-sc-item-label">Make it Attractive</span>
+                      <span className="habit-sc-item-desc">Pair habits with positive rewards</span>
+                    </div>
+                  </div>
+                  <div className="habit-sc-item">
+                    <div className="habit-sc-item-icon habit-sc-item-icon--easy">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                      </svg>
+                    </div>
+                    <div className="habit-sc-item-content">
+                      <span className="habit-sc-item-label">Make it Easy</span>
+                      <span className="habit-sc-item-desc">Reduce friction down to 2 minutes</span>
+                    </div>
+                  </div>
+                  <div className="habit-sc-item">
+                    <div className="habit-sc-item-icon habit-sc-item-icon--satisfying">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                    </div>
+                    <div className="habit-sc-item-content">
+                      <span className="habit-sc-item-label">Make it Satisfying</span>
+                      <span className="habit-sc-item-desc">Check off immediately for dopamine release</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import '@/styles/_add-task-modal.scss'
 
 interface Goal {
   id: string
@@ -27,7 +28,7 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
   const [newTaskSubtasks, setNewTaskSubtasks] = useState('')
   const [newTaskAssignee, setNewTaskAssignee] = useState('')
   const [newTaskColumn, setNewTaskColumn] = useState('todo')
-  const [newTaskColor, setNewTaskColor] = useState('#93c5fd')
+  const [newTaskColor, setNewTaskColor] = useState('') // Empty string for default/no color
   const [newTaskGoalId, setNewTaskGoalId] = useState<string>('')
   const [goals, setGoals] = useState<Goal[]>([])
 
@@ -43,28 +44,28 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
   }, [isOpen, authToken])
 
   const columnColorRecommendations: Record<string, string> = {
-    'todo': '#93c5fd',
-    'in-progress': '#fcd34d',
-    'review': '#f9a8d4',
-    'done': '#86efac'
+    'todo': 'var(--primary)',
+    'in-progress': 'var(--accent)',
+    'review': 'var(--primary-tint)',
+    'done': 'var(--success)'
   }
 
-  const lightColors = [
-    '#93c5fd', // medium blue
-    '#fcd34d', // medium yellow
-    '#f9a8d4', // medium pink
-    '#86efac', // medium green
-    '#c4b5fd', // medium purple
-    '#fca5a5', // medium red
-    '#a5b4fc', // indigo
-    '#6ee7b7', // emerald
-    '#fdba74', // orange
-    '#d8b4fe', // violet
+  // Theme-aware color presets using CSS variables
+  const themeColors = [
+    { name: 'empty', value: '', label: 'Default' },
+    { name: 'primary', value: 'var(--primary)', label: 'Primary' },
+    { name: 'primary-tint', value: 'var(--primary-tint)', label: 'Primary Tint' },
+    { name: 'accent', value: 'var(--accent)', label: 'Accent' },
+    { name: 'accent-tint', value: 'var(--accent-tint)', label: 'Accent Tint' },
+    { name: 'success', value: 'var(--success)', label: 'Success' },
+    { name: 'destructive', value: 'var(--destructive)', label: 'Destructive' },
+    { name: 'surface', value: 'var(--surface)', label: 'Surface' },
+    { name: 'surface-2', value: 'var(--surface-2)', label: 'Surface 2' },
   ]
 
   const handleColumnChange = (column: string) => {
     setNewTaskColumn(column)
-    setNewTaskColor(columnColorRecommendations[column] || '#93c5fd')
+    setNewTaskColor(columnColorRecommendations[column] || '')
   }
 
   const handleAddTask = async () => {
@@ -122,7 +123,7 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
       setNewTaskSubtasks('')
       setNewTaskAssignee('')
       setNewTaskColumn('todo')
-      setNewTaskColor('#93c5fd')
+      setNewTaskColor('')
       setNewTaskGoalId('')
       onClose()
     } catch (error) {
@@ -257,19 +258,21 @@ export default function AddTaskModal({ isOpen, onClose, onAddTask, boardId, auth
               <input
                 id="task-color"
                 type="color"
-                value={newTaskColor}
+                value={newTaskColor || '#4F46E5'}
                 onChange={(e) => setNewTaskColor(e.target.value)}
                 className="color-input"
               />
               <div className="color-presets">
-                {lightColors.map((color) => (
+                {themeColors.map((color) => (
                   <button
-                    key={color}
+                    key={color.name}
                     type="button"
-                    className={`color-preset ${newTaskColor === color ? 'active' : ''}`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setNewTaskColor(color)}
-                    title={color}
+                    className={`color-preset color-${color.name} ${newTaskColor === color.value ? 'active' : ''}`}
+                    style={{ 
+                      backgroundColor: color.value === '' ? undefined : color.value 
+                    }}
+                    onClick={() => setNewTaskColor(color.value)}
+                    title={color.label}
                   />
                 ))}
               </div>

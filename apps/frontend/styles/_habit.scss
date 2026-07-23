@@ -3397,34 +3397,125 @@
 }
 
 .habit-science-card {
-  padding: 18px;
+  padding: 20px;
   background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
 }
 
 .habit-sc-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ink);
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
-.habit-sc-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.habit-sc-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--primary-tint), var(--primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-dark);
+  flex-shrink: 0;
+}
+
+.habit-sc-title-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--ink-soft);
-  line-height: 1.4;
+  gap: 2px;
+}
 
-  strong {
-    color: var(--ink);
+.habit-sc-title {
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-display, $font-display);
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.habit-sc-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.habit-sc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.habit-sc-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    background: var(--surface-3);
+    transform: translateY(-2px);
   }
+}
+
+.habit-sc-item-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &--obvious {
+    background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+  }
+
+  &--attractive {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+  }
+
+  &--easy {
+    background: linear-gradient(135deg, #10B981, #059669);
+  }
+
+  &--satisfying {
+    background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  }
+}
+
+.habit-sc-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.habit-sc-item-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.habit-sc-item-desc {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+  font-weight: 500;
 }
 
 // Dark Mode Overrides
@@ -3437,6 +3528,23 @@
   .habit-science-card {
     background: var(--surface, #1E293B);
     border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .habit-sc-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  .habit-sc-item-label {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .habit-sc-item-desc {
+    color: rgba(255, 255, 255, 0.6);
   }
 
   .habit-row-item {

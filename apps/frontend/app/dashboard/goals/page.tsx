@@ -46,6 +46,7 @@ interface GuidedQuestion {
 
 // ─── Markdown renderer ─────────────────────────────────────────────────────────
 function renderMessage(text: string) {
+  if (!text || typeof text !== 'string') return null
   const lines = text.split('\n')
   const elements: JSX.Element[] = []
   let listItems: string[] = []
@@ -195,16 +196,36 @@ export default function GoalsPage() {
   const loadConversation = async (conv: Conversation) => {
     if (!authToken) return
     setActiveConversationId(conv.id)
+    setGuidedQuestion(null)
+    setGuidedDraft('')
+    setSelectedSuggestion(null)
     try {
+      console.log('Loading conversation:', conv.id)
       const res = await fetch(`http://localhost:3001/api/ai/conversations/${conv.id}/messages`, {
         headers: { Authorization: `Bearer ${authToken}` }
       })
       if (res.ok) {
         const msgs = await res.json()
-        setMessages(msgs.map((m: any) => ({ role: m.role, content: m.content })))
+        console.log('Fetched messages for conversation:', conv.id, msgs)
+        if (Array.isArray(msgs)) {
+          setMessages(
+            msgs.map((m: any) => ({
+              role: m.role || 'assistant',
+              content: typeof m.content === 'string' ? m.content : String(m.content || ''),
+            }))
+          )
+        } else {
+          console.warn('Messages response is not an array:', msgs)
+          setMessages([])
+        }
+      } else {
+        const errText = await res.text()
+        console.error('Failed to load messages:', res.status, errText)
+        toast.error({ message: 'Failed to load chat history' })
       }
     } catch (e) {
       console.error('Error loading conversation:', e)
+      toast.error({ message: 'Failed to load chat history' })
     }
   }
 
@@ -877,7 +898,7 @@ export default function GoalsPage() {
             <div className="goal-chat-guided-panel">
               <div className="goal-chat-guided-panel-inner">
                 {/* Step badge */}
-                <div className="goal-chat-guided-step-badge">
+                <div className="goal-chat-guided-step-badge" data-step={guidedQuestion.step}>
                   {guidedQuestion.step === 'wish' && 'Wish'}
                   {guidedQuestion.step === 'outcome' && 'Outcome'}
                   {guidedQuestion.step === 'obstacle' && 'Obstacle'}

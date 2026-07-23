@@ -1,123 +1,221 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
+import { useWeeklyReviewData } from './hooks/useWeeklyReviewData'
+import { WeeklyReviewStepper } from './components/weekly-review-stepper'
+import { Step1GetClear } from './components/steps/step1-get-clear'
+import { Step2GetCurrent } from './components/steps/step2-get-current'
+import { Step3GoalAlignment } from './components/steps/step3-goal-alignment'
+import { Step4GetCreative } from './components/steps/step4-get-creative'
+import { Step5CommitmentSummary } from './components/steps/step5-commitment-summary'
+import { ReflectionHistoryModal } from './components/reflection-history-modal'
 
+// ── Loading Skeleton ──────────────────────────────────────────────────────────
+function LoadingSkeleton() {
+  return (
+    <div className="wr-page">
+      <div className="wr-loading-page">
+        <div className="wr-loading-page__header">
+          <div className="wr-loading-page__title-row">
+            <div className="wr-skeleton wr-skeleton--title" style={{ width: '40%' }} />
+            <div className="wr-skeleton wr-skeleton--text" style={{ width: '120px' }} />
+          </div>
+          <div className="wr-skeleton wr-skeleton--text" style={{ width: '100%', height: 6 }} />
+          <div className="wr-loading-page__pills">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="wr-skeleton wr-skeleton--pill" />
+            ))}
+          </div>
+        </div>
+        <div className="wr-loading-page__body">
+          <div className="wr-loading-page__card">
+            <div className="wr-skeleton wr-skeleton--title" style={{ width: '60%' }} />
+            <div className="wr-skeleton wr-skeleton--block" />
+            <div className="wr-skeleton wr-skeleton--block" />
+            <div className="wr-skeleton wr-skeleton--block" />
+          </div>
+          <div className="wr-loading-page__card">
+            <div className="wr-skeleton wr-skeleton--title" style={{ width: '50%' }} />
+            <div className="wr-skeleton wr-skeleton--card" />
+            <div className="wr-skeleton wr-skeleton--card" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Error State ───────────────────────────────────────────────────────────────
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="wr-page">
+      <div className="wr-error-page">
+        <div className="wr-error-page__icon">⚠️</div>
+        <h2 className="wr-error-page__title">Couldn&apos;t load your Weekly Review</h2>
+        <p className="wr-error-page__body">{message}</p>
+        <button className="wr-btn wr-btn--primary wr-btn--lg" onClick={() => window.location.reload()}>
+          Try Again
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ReflectionPage() {
-  const [workedWell, setWorkedWell] = useState('')
-  const [adjustment, setAdjustment] = useState('')
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [currentStep,    setCurrentStep]    = useState<number>(1)
+  const [completedSteps, setCompletedSteps] = useState<number[]>([])
+  const [isHistoryOpen,  setIsHistoryOpen]  = useState(false)
+  const [showCelebration, setShowCelebration] = useState(false)
 
-  const getWeekRange = () => {
-    const now = new Date()
-    const start = new Date(now)
-    start.setDate(now.getDate() - 6)
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-    return `${start.toLocaleDateString('en-US', options)} – ${now.toLocaleDateString('en-US', options)}`
+  const data = useWeeklyReviewData()
+
+  // ── Loading / Error guards ────────────────────────────────────────────────
+  if (data.isLoading) return <LoadingSkeleton />
+  if (data.error)     return <ErrorState message={data.error} />
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  const handleNextStep = () => {
+    if (!completedSteps.includes(currentStep)) {
+      setCompletedSteps(prev => [...prev, currentStep])
+    }
+    if (currentStep < 5) {
+      setCurrentStep(prev => prev + 1)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const handlePrevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(prev => prev - 1)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const handleOpenHistory = async () => {
+    setIsHistoryOpen(true)
+    await data.handleFetchHistory()
+  }
+
+  const handleFinish = async () => {
+    const ok = await data.handleFinishReview()
+    if (ok !== false) setShowCelebration(true)
   }
 
   return (
-    <div className="screen active">
-      <div className="topbar">
-        <div>
-          <h1>Reflection</h1>
-        </div>
-        <div className="topbar-right">
-          <button className="new-task-btn">
-            <svg viewBox="0 0 24 24" fill="none">
-              <line x1="12" y1="5" x2="12" y2="19" strokeWidth="2" strokeLinecap="round"/>
-              <line x1="5" y1="12" x2="19" y2="12" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            New Task
-          </button>
-          <div className="user-profile">
-            <button 
-              className="user-profile-btn"
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+    <div className="wr-page">
+      <div className="wr-container">
+
+        {/* ── Stepper Header ────────────────────────────────────────── */}
+        <WeeklyReviewStepper
+          currentStep={currentStep}
+          setCurrentStep={setCurrentStep}
+          completedSteps={completedSteps}
+          lastSavedAt={data.lastSavedAt}
+          isAutoSaving={data.isAutoSaving}
+          onOpenHistory={handleOpenHistory}
+        />
+
+        {/* ── Step Views ────────────────────────────────────────────── */}
+        <main>
+          {currentStep === 1 && (
+            <Step1GetClear
+              inboxItems={data.inboxItems}
+              setInboxItems={data.setInboxItems}
+              workspaceChecklist={data.workspaceChecklist}
+              setWorkspaceChecklist={data.setWorkspaceChecklist}
+              onNextStep={handleNextStep}
+            />
+          )}
+
+          {currentStep === 2 && (
+            <Step2GetCurrent
+              habits={data.habits}
+              rolloverTasks={data.rolloverTasks}
+              setRolloverTasks={data.setRolloverTasks}
+              energyLevel={data.energyLevel}
+              setEnergyLevel={data.setEnergyLevel}
+              stressLevel={data.stressLevel}
+              setStressLevel={data.setStressLevel}
+              onNextStep={handleNextStep}
+              onPrevStep={handlePrevStep}
+            />
+          )}
+
+          {currentStep === 3 && (
+            <Step3GoalAlignment
+              goals={data.goals}
+              setGoals={data.setGoals}
+              woopObstacle={data.woopObstacle}
+              setWoopObstacle={data.setWoopObstacle}
+              onNextStep={handleNextStep}
+              onPrevStep={handlePrevStep}
+            />
+          )}
+
+          {currentStep === 4 && (
+            <Step4GetCreative
+              workedWell={data.workedWell}
+              setWorkedWell={data.setWorkedWell}
+              didntWork={data.didntWork}
+              setDidntWork={data.setDidntWork}
+              intention={data.intention}
+              setIntention={data.setIntention}
+              aiInsights={data.aiInsights}
+              setAiInsights={data.setAiInsights}
+              isGeneratingAi={data.isGeneratingAi}
+              onGenerateAi={data.handleGenerateAi}
+              onNextStep={handleNextStep}
+              onPrevStep={handlePrevStep}
+            />
+          )}
+
+          {currentStep === 5 && (
+            <Step5CommitmentSummary
+              topPriorities={data.topPriorities}
+              setTopPriorities={data.setTopPriorities}
+              weeklyMotto={data.weeklyMotto}
+              setWeeklyMotto={data.setWeeklyMotto}
+              intention={data.intention}
+              energyLevel={data.energyLevel}
+              isSaving={data.isSaving}
+              onFinishReview={handleFinish}
+              onPrevStep={handlePrevStep}
+            />
+          )}
+        </main>
+      </div>
+
+      {/* ── History Modal ─────────────────────────────────────────── */}
+      <ReflectionHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        reflections={data.pastReflections}
+        isLoading={data.isLoadingHistory}
+      />
+
+      {/* ── Celebration Modal ─────────────────────────────────────── */}
+      {showCelebration && (
+        <div className="wr-celebration-overlay">
+          <div className="wr-celebration">
+            <div className="wr-celebration__icon">🎉</div>
+            <h2 className="wr-celebration__title">Weekly Review Sealed!</h2>
+            <p className="wr-celebration__body">
+              Your habits, goals, and implementation intentions are saved and synced. Start next week with full clarity!
+            </p>
+            <button
+              className="wr-btn wr-btn--success wr-btn--lg wr-celebration__cta"
+              onClick={() => {
+                setShowCelebration(false)
+                setCurrentStep(1)
+                setCompletedSteps([])
+              }}
             >
-              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" alt="User avatar" />
+              Done — Return to Step 1
             </button>
-            <div className={`user-profile-menu ${profileMenuOpen ? 'open' : ''}`}>
-              <div className="user-profile-menu-item">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="3" strokeWidth="1.5"/>
-                  <path d="M20 20c0-3.3-2.7-6-6-6h-4c-3.3 0-6 2.7-6 6" strokeWidth="1.5"/>
-                </svg>
-                Profile
-              </div>
-              <div className="user-profile-menu-item">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="3" strokeWidth="1.5"/>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" strokeWidth="1.5"/>
-                </svg>
-                Settings
-              </div>
-              <div className="user-profile-menu-divider"></div>
-              <div className="user-profile-menu-item">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeWidth="1.5"/>
-                  <polyline points="16 17 21 12 16 7" strokeWidth="1.5"/>
-                  <line x1="21" y1="12" x2="9" y2="12" strokeWidth="1.5"/>
-                </svg>
-                Sign out
-              </div>
-            </div>
           </div>
         </div>
-      </div>
-
-      <div className="reflect-grid">
-        <div className="card">
-          <div className="section-title">How the week went</div>
-          <div className="stat-row">
-            <span className="stat-num">11</span>
-            <span className="stat-of">of 15 planned tasks done</span>
-          </div>
-          <div className="bar-row">
-            <div className="bar-label">Work</div>
-            <div className="bar-track">
-              <div className="bar-fill" style={{width: '80%'}}/>
-            </div>
-          </div>
-          <div className="bar-row">
-            <div className="bar-label">Health</div>
-            <div className="bar-track">
-              <div className="bar-fill" style={{width: '65%', background: '#4A7A3A'}}/>
-            </div>
-          </div>
-          <div className="bar-row">
-            <div className="bar-label">Home</div>
-            <div className="bar-track">
-              <div className="bar-fill" style={{width: '40%', background: 'var(--accent)'}}/>
-            </div>
-          </div>
-          <p style={{marginTop: 16, fontSize: 13, color: 'var(--muted)', lineHeight: 1.5}}>
-            No missed streaks this week — the morning routine held even on Wednesday when the schedule shifted.
-          </p>
-        </div>
-
-        <div className="card">
-          <div className="section-title">Your reflection</div>
-          <div className="reflect-q">
-            <label>What's one thing that worked well?</label>
-            <textarea 
-              placeholder="e.g. Breaking the brief into a 20-minute step actually got it moving."
-              value={workedWell}
-              onChange={(e) => setWorkedWell(e.target.value)}
-            />
-          </div>
-          <div className="reflect-q" style={{marginTop: 16}}>
-            <label>What's one small adjustment for next week?</label>
-            <textarea 
-              placeholder="e.g. Move the home tasks earlier so they don't get squeezed out."
-              value={adjustment}
-              onChange={(e) => setAdjustment(e.target.value)}
-            />
-          </div>
-          <button className="btn btn-solid" style={{background: 'var(--primary)', color: '#fff', marginTop: 16, width: '100%'}}>
-            Save reflection
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   )
 }

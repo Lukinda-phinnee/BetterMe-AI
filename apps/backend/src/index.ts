@@ -9,6 +9,7 @@ import { boardsRouter } from './routes/boards'
 import { cardsRouter } from './routes/cards'
 import { goalsRouter } from './routes/goals'
 import { habitsRouter } from './routes/habits'
+import { reflectionsRouter } from './routes/reflections'
 import aiRouter from './routes/ai'
 
 const app = express()
@@ -30,6 +31,7 @@ app.use('/api/boards', boardsRouter)
 app.use('/api/cards', cardsRouter)
 app.use('/api/goals', goalsRouter)
 app.use('/api/habits', habitsRouter)
+app.use('/api/reflections', reflectionsRouter)
 app.use('/api/ai', aiRouter)
 
 // Error handling
