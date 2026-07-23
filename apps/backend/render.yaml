@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     buildCommand: pnpm install --dir ../.. && pnpm --filter @betterme/backend build
-    startCommand: pnpm --filter @betterme/backend start
+    startCommand: pnpm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION

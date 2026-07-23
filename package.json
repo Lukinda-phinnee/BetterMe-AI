@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "start": "pnpm --filter @betterme/backend start",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "format": "turbo run format"
